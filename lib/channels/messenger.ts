@@ -2,6 +2,7 @@ import { extractOrder } from "@/lib/ai/extract-order";
 import { deriveOrderStatus, formatWhatsAppOrderReply } from "@/lib/formatting";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toJson } from "@/lib/types/database";
 
 async function findUserByPageId(pageId: string) {
   const admin = createAdminClient();
@@ -48,7 +49,7 @@ export async function handleMessengerWebhook(body: unknown) {
           user_id: userId,
           raw_input: text,
           input_type: "text",
-          extracted_json: extracted,
+          extracted_json: toJson(extracted),
           missing_fields: extracted.missing_fields,
           confidence_score: extracted.confidence_score,
           status,

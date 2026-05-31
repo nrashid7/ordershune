@@ -4,6 +4,9 @@ import { StatusBadge } from "@/components/orders/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/types/database";
+
+type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
 
 export default async function CustomerDetailPage({
   params,
@@ -16,22 +19,32 @@ export default async function CustomerDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: customer } = await supabase
+  const { data: customerData } = await supabase
     .from("customers")
     .select("*")
     .eq("id", id)
     .eq("user_id", user!.id)
     .maybeSingle();
 
+  const customer = customerData as CustomerRow | null;
+
   if (!customer) notFound();
 
-  const { data: orders } = await supabase
+  const { data: ordersData } = await supabase
     .from("orders")
     .select("id, product_name, cod_amount, status, created_at")
     .eq("user_id", user!.id)
     .eq("customer_phone", customer.phone)
     .order("created_at", { ascending: false })
     .limit(20);
+
+  const orders = (ordersData ?? []) as {
+    id: string;
+    product_name: string | null;
+    cod_amount: number | null;
+    status: string;
+    created_at: string;
+  }[];
 
   return (
     <div className="space-y-6">
@@ -55,7 +68,7 @@ export default async function CustomerDetailPage({
           <CardTitle>Order history</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(orders ?? []).map((o) => (
+          {orders.map((o) => (
             <Link
               key={o.id}
               href={`/orders/${o.id}`}

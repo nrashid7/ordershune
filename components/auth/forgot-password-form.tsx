@@ -27,7 +27,7 @@ export function ForgotPasswordForm() {
             </p>
           ) : null}
           {state?.success ? (
-            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <p className="rounded-md bg-brand-muted px-3 py-2 text-sm text-brand">
               {state.success}
             </p>
           ) : null}
@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
           </Button>
         </form>
         <p className="mt-4 text-center text-sm">
-          <Link href="/login" className="text-emerald-700 underline">
+          <Link href="/login" className="text-brand underline">
             Back to login
           </Link>
         </p>

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ImageIcon, MicIcon } from "lucide-react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
+import { FileUploadField } from "@/components/orders/file-upload-field";
 import {
   extractedToFormValues,
   OrderCard,
@@ -169,13 +171,14 @@ export function CreateOrderClient({
               <CardTitle>Order screenshot</CardTitle>
             </CardHeader>
             <CardContent>
-              <input
-                type="file"
+              <FileUploadField
+                id="order-screenshot-upload"
+                label="Screenshot file"
+                description="Upload a screenshot of the customer order message."
                 accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) processFile(file, "image");
-                }}
+                loading={loading}
+                icon={ImageIcon}
+                onFile={(file) => processFile(file, "image")}
               />
             </CardContent>
           </Card>
@@ -187,13 +190,14 @@ export function CreateOrderClient({
               <CardTitle>Voice note</CardTitle>
             </CardHeader>
             <CardContent>
-              <input
-                type="file"
+              <FileUploadField
+                id="order-voice-upload"
+                label="Voice note file"
+                description="Upload a voice note to transcribe and extract order details."
                 accept="audio/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) processFile(file, "audio");
-                }}
+                loading={loading}
+                icon={MicIcon}
+                onFile={(file) => processFile(file, "audio")}
               />
             </CardContent>
           </Card>

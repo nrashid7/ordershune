@@ -15,7 +15,10 @@ export default async function CodPage() {
     .eq("user_id", user!.id)
     .order("created_at", { ascending: false });
 
-  const list = entries ?? [];
+  const list = (entries ?? []) as {
+    status: string;
+    cod_amount: number;
+  }[];
   const pending = list.filter((e) => e.status === "pending");
   const collected = list.filter((e) => e.status === "collected");
 

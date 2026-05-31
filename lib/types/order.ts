@@ -1,3 +1,5 @@
+import type { Database } from "@/lib/types/database";
+
 export type PaymentStatus = "paid" | "cod" | "partial" | "unknown";
 
 export type OrderStatus =
@@ -35,6 +37,7 @@ export interface ExtractedOrder {
 export interface OrderRecord {
   id: string;
   user_id: string;
+  customer_id?: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
@@ -56,6 +59,8 @@ export interface OrderRecord {
   courier_status: string | null;
   courier_tracking_id: string | null;
   courier_payload: Record<string, unknown> | null;
+  delivered_at?: string | null;
+  cod_entry_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -140,3 +145,14 @@ export const COURIER_LABELS: Record<CourierName, string> = {
   steadfast: "Steadfast",
   delivery_tiger: "Delivery Tiger",
 };
+
+export type DbOrderRow = Database["public"]["Tables"]["orders"]["Row"];
+
+export function dbOrderToRecord(row: DbOrderRow): OrderRecord {
+  return {
+    ...row,
+    extracted_json: row.extracted_json as ExtractedOrder | null,
+    courier_payload: row.courier_payload as Record<string, unknown> | null,
+    status: row.status as OrderStatus,
+  };
+}

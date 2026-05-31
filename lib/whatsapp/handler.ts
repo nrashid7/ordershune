@@ -9,6 +9,8 @@ import { checkOrderLimit } from "@/lib/subscriptions";
 import { extractTextFromImage } from "@/lib/ocr";
 import { transcribeAudio } from "@/lib/speech";
 import type { InputType } from "@/lib/types/order";
+import { dbOrderToRecord } from "@/lib/types/order";
+import { toJson } from "@/lib/types/database";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { downloadWhatsAppMedia, sendWhatsAppMessage } from "./client";
 import { handleCommand } from "./commands";
@@ -102,7 +104,7 @@ async function processOrderInput(
       delivery_note: extracted.delivery_note,
       raw_input: rawText,
       input_type: inputType,
-      extracted_json: extracted,
+      extracted_json: toJson(extracted),
       missing_fields: extracted.missing_fields,
       confidence_score: extracted.confidence_score,
       status,
@@ -142,7 +144,7 @@ async function processOrderInput(
     { onConflict: "whatsapp_phone" }
   );
 
-  return order;
+  return dbOrderToRecord(order);
 }
 
 export async function handleWhatsAppWebhook(body: unknown) {

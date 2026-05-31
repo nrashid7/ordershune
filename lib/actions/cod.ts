@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/types/database";
 
 export async function updateCodEntry(
   id: string,
@@ -13,7 +14,7 @@ export async function updateCodEntry(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const updates: Record<string, unknown> = {
+  const updates: Database["public"]["Tables"]["cod_entries"]["Update"] = {
     status: data.status,
     notes: data.notes ?? null,
   };

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { listCourierAdapters } from "@/lib/couriers";
 import { resolveCourierConfig } from "@/lib/courier-config";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
-import { COURIER_NAMES } from "@/lib/types/order";
+import { COURIER_NAMES, dbOrderToRecord } from "@/lib/types/order";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const adapter = adapters.find((a) => a.name === name);
     if (!adapter) continue;
     const config = resolveCourierConfig(integrationMap.get(name) ?? null);
-    const charge = await adapter.calculateCharge(order, config);
+    const charge = await adapter.calculateCharge(dbOrderToRecord(order), config);
     comparisons.push({
       courier: name,
       charge: charge.charge,

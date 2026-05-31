@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
+import { DeleteOrderButton } from "@/components/orders/delete-order-button";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -17,7 +19,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportOrdersDialog } from "@/components/orders/import-orders-dialog";
-import { deleteOrder } from "@/lib/actions/orders";
 import { CSV_HEADERS, orderToCsvRow } from "@/lib/formatting";
 import type { OrderRecord } from "@/lib/types/order";
 
@@ -56,12 +57,17 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          placeholder="Search orders..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="max-w-md"
-        />
+        <div className="max-w-md space-y-2">
+          <Label htmlFor="orders-search" className="sr-only">
+            Search orders
+          </Label>
+          <Input
+            id="orders-search"
+            placeholder="Search orders..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
         <div className="flex gap-2">
           <ImportOrdersDialog />
           <Button variant="outline" onClick={exportCsv}>
@@ -122,17 +128,10 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
                       <Button asChild size="sm" variant="outline">
                         <Link href={`/orders/${order.id}`}>View</Link>
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={async () => {
-                          const result = await deleteOrder(order.id);
-                          if (result.error) toast.error(result.error);
-                          else toast.success("Order deleted");
-                        }}
-                      >
-                        Delete
-                      </Button>
+                      <DeleteOrderButton
+                        orderId={order.id}
+                        customerName={order.customer_name}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>

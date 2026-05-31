@@ -39,9 +39,10 @@ npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
-Or run the SQL files manually in the Supabase SQL editor:
+Or run the SQL files manually in the Supabase SQL editor (in order):
 
 - `supabase/migrations/20260530100000_initial_schema.sql`
+- `supabase/migrations/20260530120000_launch_features.sql` — customers, subscriptions, COD, notifications, team orgs, channel integrations, encrypted courier credentials, `orders.customer_id`
 - `supabase/migrations/20260530100001_seed_demo.sql`
 
 ### 3. Environment variables
@@ -177,14 +178,14 @@ Monitor `GET /api/health` — returns `200` when Supabase is reachable.
 - [x] Connect real WhatsApp Business Cloud API sending (when credentials set)
 - [x] Connect real Pathao, REDX, Steadfast, Delivery Tiger APIs (when credentials set)
 - [x] Add billing/subscription (Stripe)
-- [x] Add team accounts
-- [x] Add Messenger integration
-- [x] Add Instagram DM integration
+- [ ] Add team accounts (org + invites UI; invite acceptance and shared orders not yet wired)
+- [ ] Add Messenger integration (inbound webhook + settings; outbound replies still use env token)
+- [ ] Add Instagram DM integration (inbound webhook + settings; outbound replies still use env token)
 - [x] Add customer database / repeat buyer profiles
 - [x] Add COD tracking and reconciliation
 - [x] Add delivery status notifications
 - [x] Add bulk order import (CSV)
-- [x] Add courier charge comparison
+- [ ] Add courier charge comparison (UI + API; pricing still heuristic/mock for some couriers)
 - [x] Encrypt courier credentials at rest (set `CREDENTIALS_ENCRYPTION_KEY`)
 
 ### New routes

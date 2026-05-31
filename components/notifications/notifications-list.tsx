@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { markAllNotificationsRead, markNotificationRead } from "@/lib/actions/notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +18,14 @@ type NotificationItem = {
 
 export function NotificationsList({ items }: { items: NotificationItem[] }) {
   if (items.length === 0) {
-    return <p className="text-muted-foreground">No notifications yet.</p>;
+    return (
+      <EmptyState
+        title="No alerts yet"
+        description="Order updates and delivery notifications will appear here."
+        actionHref="/orders"
+        actionLabel="View orders"
+      />
+    );
   }
 
   return (
@@ -39,7 +47,7 @@ export function NotificationsList({ items }: { items: NotificationItem[] }) {
                 {new Date(n.created_at).toLocaleString()}
               </p>
               {n.order_id ? (
-                <Link href={`/orders/${n.order_id}`} className="text-sm text-emerald-700 underline">
+                <Link href={`/orders/${n.order_id}`} className="text-sm text-brand underline">
                   View order
                 </Link>
               ) : null}

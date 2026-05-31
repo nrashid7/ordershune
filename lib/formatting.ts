@@ -5,7 +5,7 @@ import type {
   Profile,
 } from "@/lib/types/order";
 
-type OrderLike = Partial<OrderRecord> & Partial<ExtractedOrder>;
+type OrderLike = Partial<OrderRecord> | Partial<ExtractedOrder>;
 
 function val(value: unknown): string {
   if (value == null || value === "") return "—";

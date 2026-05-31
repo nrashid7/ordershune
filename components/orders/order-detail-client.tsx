@@ -8,6 +8,7 @@ import {
   OrderCard,
   type OrderCardValues,
 } from "@/components/orders/order-card";
+import { OrderTimeline } from "@/components/orders/order-timeline";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +53,13 @@ export function OrderDetailClient({
     cod_amount: values.cod_amount ? Number(values.cod_amount) : null,
   };
 
+  const courierPreview =
+    order.courier_payload != null
+      ? typeof order.courier_payload === "string"
+        ? order.courier_payload
+        : JSON.stringify(order.courier_payload, null, 2)
+      : generateCourierFormat(summaryOrder, profile);
+
   const handleSave = async () => {
     const result = await saveOrder({
       id: order.id,
@@ -74,8 +82,14 @@ export function OrderDetailClient({
   const timeline = [
     { label: "Order created", done: true },
     { label: "Information complete", done: order.status !== "missing_info" },
-    { label: "Ready for courier", done: ["ready_for_courier", "courier_booked", "completed"].includes(order.status) },
-    { label: "Courier booked", done: ["courier_booked", "completed"].includes(order.status) },
+    {
+      label: "Ready for courier",
+      done: ["ready_for_courier", "courier_booked", "completed"].includes(order.status),
+    },
+    {
+      label: "Courier booked",
+      done: ["courier_booked", "completed"].includes(order.status),
+    },
     { label: "Delivered", done: order.status === "completed" },
   ];
 
@@ -142,33 +156,25 @@ export function OrderDetailClient({
             <CardTitle>Original raw message</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="whitespace-pre-wrap text-sm">{order.raw_input ?? "—"}</pre>
+            <p className="whitespace-pre-wrap text-sm">{order.raw_input ?? "—"}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Extracted JSON</CardTitle>
+            <CardTitle>Order summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
-              {JSON.stringify(order.extracted_json, null, 2)}
-            </pre>
+            <pre className="whitespace-pre-wrap text-sm">{generateOrderSummary(summaryOrder)}</pre>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Courier-ready payload</CardTitle>
+            <CardTitle>Courier format preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
-              {JSON.stringify(
-                order.courier_payload ?? generateCourierFormat(summaryOrder, profile),
-                null,
-                2
-              )}
-            </pre>
+            <pre className="whitespace-pre-wrap text-sm">{courierPreview}</pre>
           </CardContent>
         </Card>
 
@@ -177,20 +183,37 @@ export function OrderDetailClient({
             <CardTitle>Courier status timeline</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {timeline.map((step) => (
-              <div key={step.label} className="flex items-center gap-3">
-                <div
-                  className={`h-3 w-3 rounded-full ${step.done ? "bg-emerald-500" : "bg-muted"}`}
-                />
-                <span>{step.label}</span>
-              </div>
-            ))}
+            <OrderTimeline steps={timeline} />
             <p className="text-sm text-muted-foreground">
               Tracking: {order.courier_tracking_id ?? "Not booked yet"}
             </p>
           </CardContent>
         </Card>
       </div>
+
+      <details className="rounded-xl border bg-card">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+          Technical details
+        </summary>
+        <div className="space-y-4 border-t px-4 py-4">
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Extracted JSON
+            </p>
+            <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
+              {JSON.stringify(order.extracted_json, null, 2)}
+            </pre>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Courier payload
+            </p>
+            <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
+              {JSON.stringify(order.courier_payload ?? summaryOrder, null, 2)}
+            </pre>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

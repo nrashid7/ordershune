@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -43,6 +44,20 @@ export function extractedToFormValues(data: ExtractedOrder): OrderCardValues {
   };
 }
 
+const FIELD_IDS = {
+  customer_name: "order-customer-name",
+  customer_phone: "order-customer-phone",
+  customer_address: "order-customer-address",
+  delivery_area: "order-delivery-area",
+  product_name: "order-product-name",
+  quantity: "order-quantity",
+  variant: "order-variant",
+  price: "order-price",
+  cod_amount: "order-cod-amount",
+  payment_status: "order-payment-status",
+  delivery_note: "order-delivery-note",
+} as const;
+
 export function OrderCard({
   values,
   onChange,
@@ -54,6 +69,8 @@ export function OrderCard({
   missingFields?: string[];
   confidenceScore?: number;
 }) {
+  const paymentStatusId = useId();
+
   const update = (key: keyof OrderCardValues, value: string) => {
     onChange({ ...values, [key]: value });
   };
@@ -78,41 +95,77 @@ export function OrderCard({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Customer Name / গ্রাহক">
-          <Input value={values.customer_name} onChange={(e) => update("customer_name", e.target.value)} />
+        <Field label="Customer Name / গ্রাহক" htmlFor={FIELD_IDS.customer_name}>
+          <Input
+            id={FIELD_IDS.customer_name}
+            value={values.customer_name}
+            onChange={(e) => update("customer_name", e.target.value)}
+          />
         </Field>
-        <Field label="Phone / ফোন">
-          <Input value={values.customer_phone} onChange={(e) => update("customer_phone", e.target.value)} />
+        <Field label="Phone / ফোন" htmlFor={FIELD_IDS.customer_phone}>
+          <Input
+            id={FIELD_IDS.customer_phone}
+            value={values.customer_phone}
+            onChange={(e) => update("customer_phone", e.target.value)}
+          />
         </Field>
-        <Field label="Address / ঠিকানা" className="sm:col-span-2">
-          <Textarea value={values.customer_address} onChange={(e) => update("customer_address", e.target.value)} />
+        <Field label="Address / ঠিকানা" htmlFor={FIELD_IDS.customer_address} className="sm:col-span-2">
+          <Textarea
+            id={FIELD_IDS.customer_address}
+            value={values.customer_address}
+            onChange={(e) => update("customer_address", e.target.value)}
+          />
         </Field>
-        <Field label="Delivery Area">
-          <Input value={values.delivery_area} onChange={(e) => update("delivery_area", e.target.value)} />
+        <Field label="Delivery Area" htmlFor={FIELD_IDS.delivery_area}>
+          <Input
+            id={FIELD_IDS.delivery_area}
+            value={values.delivery_area}
+            onChange={(e) => update("delivery_area", e.target.value)}
+          />
         </Field>
-        <Field label="Product">
-          <Input value={values.product_name} onChange={(e) => update("product_name", e.target.value)} />
+        <Field label="Product" htmlFor={FIELD_IDS.product_name}>
+          <Input
+            id={FIELD_IDS.product_name}
+            value={values.product_name}
+            onChange={(e) => update("product_name", e.target.value)}
+          />
         </Field>
-        <Field label="Quantity">
-          <Input value={values.quantity} onChange={(e) => update("quantity", e.target.value)} />
+        <Field label="Quantity" htmlFor={FIELD_IDS.quantity}>
+          <Input
+            id={FIELD_IDS.quantity}
+            value={values.quantity}
+            onChange={(e) => update("quantity", e.target.value)}
+          />
         </Field>
-        <Field label="Variant / Size / Color">
-          <Input value={values.variant} onChange={(e) => update("variant", e.target.value)} />
+        <Field label="Variant / Size / Color" htmlFor={FIELD_IDS.variant}>
+          <Input
+            id={FIELD_IDS.variant}
+            value={values.variant}
+            onChange={(e) => update("variant", e.target.value)}
+          />
         </Field>
-        <Field label="Price">
-          <Input value={values.price} onChange={(e) => update("price", e.target.value)} />
+        <Field label="Price" htmlFor={FIELD_IDS.price}>
+          <Input
+            id={FIELD_IDS.price}
+            value={values.price}
+            onChange={(e) => update("price", e.target.value)}
+          />
         </Field>
-        <Field label="COD Amount">
-          <Input value={values.cod_amount} onChange={(e) => update("cod_amount", e.target.value)} />
+        <Field label="COD Amount" htmlFor={FIELD_IDS.cod_amount}>
+          <Input
+            id={FIELD_IDS.cod_amount}
+            value={values.cod_amount}
+            onChange={(e) => update("cod_amount", e.target.value)}
+          />
         </Field>
-        <Field label="Payment Status">
+        <Field label="Payment Status" htmlFor={paymentStatusId}>
           <Select
             value={values.payment_status}
             onValueChange={(value) =>
               update("payment_status", value as OrderCardValues["payment_status"])
             }
           >
-            <SelectTrigger>
+            <SelectTrigger id={paymentStatusId}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -123,8 +176,12 @@ export function OrderCard({
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Delivery Note" className="sm:col-span-2">
-          <Textarea value={values.delivery_note} onChange={(e) => update("delivery_note", e.target.value)} />
+        <Field label="Delivery Note" htmlFor={FIELD_IDS.delivery_note} className="sm:col-span-2">
+          <Textarea
+            id={FIELD_IDS.delivery_note}
+            value={values.delivery_note}
+            onChange={(e) => update("delivery_note", e.target.value)}
+          />
         </Field>
       </div>
     </div>
@@ -133,16 +190,20 @@ export function OrderCard({
 
 function Field({
   label,
+  htmlFor,
   children,
   className,
 }: {
   label: string;
+  htmlFor: string;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <div className={className}>
-      <Label className="mb-2 block text-sm">{label}</Label>
+      <Label htmlFor={htmlFor} className="mb-2 block text-sm">
+        {label}
+      </Label>
       {children}
     </div>
   );

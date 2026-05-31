@@ -9,6 +9,8 @@ import { createNotification } from "@/lib/notifications";
 import { checkOrderLimit } from "@/lib/subscriptions";
 import { normalizePhone } from "@/lib/formatting";
 import { createClient } from "@/lib/supabase/server";
+import { toJson, type Database } from "@/lib/types/database";
+import { dbOrderToRecord } from "@/lib/types/order";
 
 export type ActionState = { error?: string } | null;
 
@@ -108,7 +110,11 @@ export async function saveOrder(data: {
     if (!limit.ok) return { error: limit.error };
   }
 
-  const payload = { ...data, user_id: user.id };
+  const payload: Database["public"]["Tables"]["orders"]["Insert"] = {
+    ...data,
+    user_id: user.id,
+    extracted_json: data.extracted_json != null ? toJson(data.extracted_json) : undefined,
+  };
 
   if (data.id) {
     const { error } = await supabase
@@ -245,7 +251,7 @@ export async function createCourierBooking(orderId: string, courierName: string)
   if (!adapter) return { error: "Courier not supported" };
 
   const config = resolveCourierConfig(integration);
-  const result = await adapter.createParcel(order, config);
+  const result = await adapter.createParcel(dbOrderToRecord(order), config);
 
   if (!result.success) return { error: result.message };
 
@@ -256,7 +262,7 @@ export async function createCourierBooking(orderId: string, courierName: string)
       courier_name: courierName,
       courier_status: result.mock ? "mock_booked" : "booked",
       courier_tracking_id: result.trackingId,
-      courier_payload: result.payload,
+      courier_payload: toJson(result.payload),
     })
     .eq("id", orderId);
 

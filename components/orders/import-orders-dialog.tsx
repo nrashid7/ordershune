@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CSV_HEADERS } from "@/lib/formatting";
 
 export function ImportOrdersDialog() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [csv, setCsv] = useState(`${CSV_HEADERS}\n`);
   const [loading, setLoading] = useState(false);
@@ -30,7 +32,7 @@ export function ImportOrdersDialog() {
       if (!res.ok) throw new Error(data.error);
       toast.success(`Imported ${data.imported} orders`);
       setOpen(false);
-      window.location.reload();
+      router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Import failed");
     } finally {

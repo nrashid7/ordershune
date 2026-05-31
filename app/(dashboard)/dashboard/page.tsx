@@ -82,7 +82,7 @@ export default async function DashboardPage() {
                 key={name}
                 className={
                   configured && integration?.is_active
-                    ? "bg-emerald-100 text-emerald-900"
+                    ? "bg-brand-muted text-brand"
                     : "bg-slate-100 text-slate-800"
                 }
               >

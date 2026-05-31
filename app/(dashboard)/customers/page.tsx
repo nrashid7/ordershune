@@ -2,6 +2,9 @@ import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/types/database";
+
+type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
 
 export default async function CustomersPage() {
   const supabase = await createClient();
@@ -15,7 +18,7 @@ export default async function CustomersPage() {
     .eq("user_id", user!.id)
     .order("last_order_at", { ascending: false });
 
-  const list = customers ?? [];
+  const list = (customers ?? []) as CustomerRow[];
 
   return (
     <div className="space-y-6">

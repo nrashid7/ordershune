@@ -41,7 +41,7 @@ export function LoginForm() {
             />
           </div>
           <div className="text-right">
-            <Link href="/forgot-password" className="text-sm text-emerald-700 underline">
+            <Link href="/forgot-password" className="text-sm text-brand underline">
               Forgot password?
             </Link>
           </div>
@@ -51,7 +51,7 @@ export function LoginForm() {
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           New seller?{" "}
-          <Link href="/signup" className="text-emerald-700 underline">
+          <Link href="/signup" className="text-brand underline">
             Create account
           </Link>
         </p>
