@@ -79,7 +79,12 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  const protectedApiRoutes = ["/api/extract-order", "/api/media-process"];
+  const protectedApiRoutes = [
+    "/api/extract-order",
+    "/api/media-process",
+    "/api/orders/import",
+    "/api/orders/manifest",
+  ];
   if (!user && protectedApiRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -28,6 +28,10 @@ const serverSchema = z.object({
   OCR_API_KEY: z.string().min(1).optional(),
   SPEECH_PROVIDER: z.enum(["mock", "openai", "google"]).default("mock"),
   SPEECH_API_KEY: z.string().min(1).optional(),
+  ALLOW_MOCK_PROVIDERS: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
@@ -50,9 +54,24 @@ export function getEnv(): ServerEnv {
   return cachedEnv;
 }
 
+/** Reset cached env (tests only). */
+export function resetEnvCache() {
+  cachedEnv = null;
+}
+
+export function isProduction() {
+  return process.env.NODE_ENV === "production";
+}
+
+/** Mock OCR/STT/AI/courier booking allowed only outside production (unless overridden). */
+export function allowMockProviders() {
+  if (!isProduction()) return true;
+  return process.env.ALLOW_MOCK_PROVIDERS === "true";
+}
+
 export function validateEnv() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    if (process.env.NODE_ENV === "production") {
+    if (isProduction()) {
       throw new Error(
         "Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
       );
@@ -60,11 +79,24 @@ export function validateEnv() {
     return;
   }
 
-  getEnv();
-}
+  const env = getEnv();
 
-export function isProduction() {
-  return process.env.NODE_ENV === "production";
+  if (isProduction()) {
+    const missing: string[] = [];
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+    if (!env.CREDENTIALS_ENCRYPTION_KEY) missing.push("CREDENTIALS_ENCRYPTION_KEY");
+    if (!env.OPENAI_API_KEY) missing.push("OPENAI_API_KEY");
+    if (!env.META_APP_SECRET && !env.WHATSAPP_APP_SECRET) {
+      missing.push("META_APP_SECRET or WHATSAPP_APP_SECRET");
+    }
+    // OCR/STT mock is blocked at call-time via allowMockProviders(); text-only
+    // launches can omit media providers until image/voice capture is enabled.
+    if (missing.length > 0) {
+      throw new Error(
+        `Production environment incomplete. Set:\n- ${missing.join("\n- ")}`
+      );
+    }
+  }
 }
 
 export function hasWhatsAppCredentials() {
@@ -78,4 +110,9 @@ export function hasWhatsAppCredentials() {
 
 export function hasWhatsAppSignatureVerification() {
   return Boolean(getEnv().WHATSAPP_APP_SECRET);
+}
+
+export function hasMetaSignatureVerification() {
+  const env = getEnv();
+  return Boolean(env.META_APP_SECRET || env.WHATSAPP_APP_SECRET);
 }

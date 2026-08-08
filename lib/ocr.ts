@@ -65,6 +65,7 @@ export async function extractTextFromImage(
   buffer: Buffer,
   mimeType: string
 ): Promise<string> {
+  const { allowMockProviders } = await import("@/lib/env");
   const provider = process.env.OCR_PROVIDER ?? "mock";
 
   switch (provider) {
@@ -74,6 +75,11 @@ export async function extractTextFromImage(
       return extractWithGoogleVision(buffer);
     case "mock":
     default:
+      if (!allowMockProviders()) {
+        throw new Error(
+          "OCR_PROVIDER=mock is not allowed in production. Set OCR_PROVIDER to google or ocrspace."
+        );
+      }
       return MOCK_OCR_TEXT;
   }
 }

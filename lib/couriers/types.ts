@@ -67,6 +67,16 @@ export function createMockAdapter(name: string): CourierAdapter {
     name,
     async createParcel(order, config) {
       const mock = !hasCredentials(config);
+      if (mock && process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_PROVIDERS !== "true") {
+        return {
+          success: false,
+          parcelId: "",
+          trackingId: "",
+          message: `Courier credentials required for ${name} in production. Configure API keys in Settings → Courier, or print a label/manifest instead.`,
+          mock: true,
+          payload: buildPayload(order, config),
+        };
+      }
       const trackingId = `${name.toUpperCase()}-MOCK-${Date.now()}`;
       return {
         success: true,

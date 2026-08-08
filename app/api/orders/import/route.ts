@@ -20,12 +20,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  const MAX_IMPORT_BYTES = 1_000_000; // 1 MB
+  if (contentLength > MAX_IMPORT_BYTES) {
+    return NextResponse.json(
+      { error: "CSV payload too large (max 1 MB)" },
+      { status: 413 }
+    );
+  }
+
   const { csv } = await request.json();
   if (!csv || typeof csv !== "string") {
     return NextResponse.json({ error: "CSV text required" }, { status: 400 });
   }
 
+  if (csv.length > MAX_IMPORT_BYTES) {
+    return NextResponse.json(
+      { error: "CSV payload too large (max 1 MB)" },
+      { status: 413 }
+    );
+  }
+
   const rows = parseCsvImport(csv);
+  if (rows.length > 500) {
+    return NextResponse.json(
+      { error: "Import limited to 500 rows per request" },
+      { status: 400 }
+    );
+  }
   if (rows.length === 0) {
     return NextResponse.json({ error: "No valid rows found" }, { status: 400 });
   }

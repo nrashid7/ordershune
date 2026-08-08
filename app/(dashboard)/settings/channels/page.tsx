@@ -41,9 +41,17 @@ export default async function ChannelsPage() {
         <p className="text-sm text-muted-foreground">
           Connect Messenger and Instagram to extract orders from DMs and comments
         </p>
+        <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
+          To go live: set Page/Account ID, verify token, and access token, then enable
+          Active. Meta must also send webhooks to the URL below with{" "}
+          <code className="text-xs">META_APP_SECRET</code> configured on the server.
+        </p>
       </div>
       {channels.map((ch) => {
         const integration = map.get(ch.id);
+        const incomplete =
+          Boolean(integration?.is_active) &&
+          (!integration?.page_id || !integration?.access_token_encrypted);
         return (
           <Card key={ch.id}>
             <CardHeader>
@@ -52,6 +60,11 @@ export default async function ChannelsPage() {
               <p className="text-xs text-muted-foreground">
                 Subscribe to: {ch.subscriptions}
               </p>
+              {incomplete ? (
+                <p className="text-sm text-destructive">
+                  Active but missing Page ID or access token — webhooks will be skipped.
+                </p>
+              ) : null}
             </CardHeader>
             <CardContent>
               <form action={saveChannelIntegration} className="grid gap-4 sm:grid-cols-2">

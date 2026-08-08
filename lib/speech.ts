@@ -63,6 +63,7 @@ export async function transcribeAudio(
   buffer: Buffer,
   mimeType: string
 ): Promise<string> {
+  const { allowMockProviders } = await import("@/lib/env");
   const provider = process.env.SPEECH_PROVIDER ?? "mock";
 
   switch (provider) {
@@ -72,6 +73,11 @@ export async function transcribeAudio(
       return transcribeWithGoogle(buffer, mimeType);
     case "mock":
     default:
+      if (!allowMockProviders()) {
+        throw new Error(
+          "SPEECH_PROVIDER=mock is not allowed in production. Set SPEECH_PROVIDER to openai or google."
+        );
+      }
       return MOCK_TRANSCRIPT;
   }
 }

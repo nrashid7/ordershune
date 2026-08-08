@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { EXTRACTION_SYSTEM_PROMPT } from "./prompts";
+import { allowMockProviders } from "@/lib/env";
 import type { ExtractedOrder, InputType } from "@/lib/types/order";
 
 const extractedOrderSchema = z.object({
@@ -142,6 +143,9 @@ export async function extractOrder(
   }
 
   if (!process.env.OPENAI_API_KEY) {
+    if (!allowMockProviders()) {
+      throw new Error("OPENAI_API_KEY is required for order extraction in production");
+    }
     return mockExtract(trimmed);
   }
 
@@ -162,11 +166,17 @@ export async function extractOrder(
 
   const content = response.choices[0]?.message?.content;
   if (!content) {
+    if (!allowMockProviders()) {
+      throw new Error("OpenAI returned an empty extraction response");
+    }
     return mockExtract(trimmed);
   }
 
   const parsed = extractedOrderSchema.safeParse(JSON.parse(content));
   if (!parsed.success) {
+    if (!allowMockProviders()) {
+      throw new Error("OpenAI returned an invalid extraction payload");
+    }
     return mockExtract(trimmed);
   }
 

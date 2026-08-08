@@ -46,6 +46,7 @@ Or run the SQL files manually in the Supabase SQL editor (in order):
 - `supabase/migrations/20260530100001_seed_demo.sql`
 - `supabase/migrations/20260808100000_channel_capture.sql` — channel conversations/messages, comment capture settings
 - `supabase/migrations/20260808110000_team_scoping.sql` — invite tokens, org-scoped orders/customers, auto-accept trigger
+- `supabase/migrations/20260808200000_production_hardening.sql` — invite accept RPC, unique active page_id
 
 ### 3. Environment variables
 
@@ -127,19 +128,17 @@ ngrok http 3000
 - Export carrier-shaped CSV manifests via **Orders → Export manifest** for portal upload
 - Supported layouts: Pathao, REDX, Steadfast, Delivery Tiger
 
-## Mock mode
+## Mock mode (local / staging only)
 
-OrderShune works end-to-end without external credentials:
+Local development works without external credentials. **Production refuses mock providers** unless `ALLOW_MOCK_PROVIDERS=true` (staging escape hatch only).
 
-| Integration | Mock behavior |
-|-------------|---------------|
-| OpenAI | Regex/heuristic extraction |
-| OCR | Returns sample Banglish order text |
-| Speech | Returns sample Bangla transcript |
-| WhatsApp send | Logs reply to server console |
-| Courier APIs | Returns mock tracking IDs via adapters |
-
-Set providers explicitly in `.env.local`:
+| Integration | Dev mock behavior | Production |
+|-------------|-------------------|------------|
+| OpenAI | Regex/heuristic extraction | Requires `OPENAI_API_KEY` |
+| OCR | Sample Banglish order text | Requires `OCR_PROVIDER=google\|ocrspace` |
+| Speech | Sample Bangla transcript | Requires `SPEECH_PROVIDER=openai\|google` |
+| WhatsApp send | Logs reply to server console | Needs Cloud API tokens |
+| Courier booking | Mock tracking IDs | Fails without courier API keys (use labels/manifests) |
 
 ```env
 OCR_PROVIDER=mock
@@ -177,26 +176,51 @@ Sample orders include text, screenshot OCR, voice transcript, missing info, and 
 
 ## Production deployment
 
+### Launch checklist (required before go-live)
+
+Apply all migrations including `20260808200000_production_hardening.sql`, then set these on Vercel/production:
+
+| Variable | Why |
+|----------|-----|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Auth + dashboard |
+| `SUPABASE_SERVICE_ROLE_KEY` | Webhooks, cron, admin lookups |
+| `CREDENTIALS_ENCRYPTION_KEY` | Encrypt channel/courier tokens (64-char hex recommended) |
+| `OPENAI_API_KEY` | Real order extraction (mock heuristics disabled in production) |
+| `META_APP_SECRET` or `WHATSAPP_APP_SECRET` | Webhooks return `503` without signature verification in production |
+| `NEXT_PUBLIC_APP_URL` | Invite links, webhook URLs in settings |
+| `OCR_PROVIDER` + `OCR_API_KEY` | Required before processing images (mock blocked in production) |
+| `SPEECH_PROVIDER` (+ key) | Required before processing voice notes |
+
+Optional but recommended: `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, Stripe keys, `CRON_SECRET`.
+
+Do **not** set `ALLOW_MOCK_PROVIDERS=true` in real production.
+
 ### Vercel (recommended)
 
 1. Push the repo to GitHub and import in [Vercel](https://vercel.com)
-2. Set environment variables from `.env.example` in the Vercel project settings
+2. Set environment variables from `.env.example` / the checklist above
 3. Set `NEXT_PUBLIC_APP_URL` to your production domain
-4. Deploy — build command: `npm run build`, output: Next.js default
-5. Point your WhatsApp webhook to `https://<your-domain>/api/whatsapp/webhook`
-6. Set `WHATSAPP_APP_SECRET` for webhook signature verification in production
+4. Deploy — Node 20+, build command: `npm run build`
+5. Point WhatsApp / Messenger / Instagram webhooks to your domain
+6. Activate channels in **Settings → Channels** (Page ID + token + Active)
+7. Confirm `GET /api/health` returns `healthy` with empty `productionGaps`
 
 ### Health check
 
-Monitor `GET /api/health` — returns `200` when Supabase is reachable.
+`GET /api/health` reports app, Supabase, service role, encryption, OpenAI, Meta signature, OCR, and speech readiness. Production returns `503` when required secrets are missing.
 
 ### Security checklist
 
 - Supabase RLS enabled on all tables (see migrations)
-- API routes require authentication via proxy session checks
-- WhatsApp webhook verifies `X-Hub-Signature-256` when `WHATSAPP_APP_SECRET` is set
+- Team invites accepted via `accept_team_invite` SECURITY DEFINER RPC
+- Authenticated API routes: extract-order, media-process, orders/import, orders/manifest
+- CSV import capped at 1 MB / 500 rows
+- Meta/WhatsApp webhooks **fail closed** in production without app secret; invalid signatures → `401`
+- Channel/courier secrets refuse plaintext storage when encryption key is missing in production
+- Mock OCR/STT/AI extraction and mock courier booking disabled in production
 - Security headers configured in `next.config.ts`
 - File uploads limited to 10 MB with MIME type validation
+- In-process rate limits are best-effort on multi-instance hosts; signatures are the primary webhook control
 
 ## Production roadmap
 

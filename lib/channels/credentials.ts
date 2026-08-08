@@ -33,15 +33,17 @@ export async function resolveChannelCredentials(
   pageId: string
 ): Promise<ChannelCredentials | null> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data: rows, error } = await admin
     .from("channel_integrations")
     .select("*")
     .eq("channel", channel)
     .eq("page_id", pageId)
     .eq("is_active", true)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
-  if (!data) return null;
+  if (error || !rows?.length) return null;
+  const data = rows[0];
 
   const fallback = envFallback(channel);
   const pageToken =
@@ -75,9 +77,9 @@ export async function findIntegrationByVerifyToken(
     .eq("channel", channel)
     .eq("verify_token", token)
     .eq("is_active", true)
-    .maybeSingle();
+    .limit(1);
 
-  return Boolean(data);
+  return Boolean(data?.length);
 }
 
 export function getMetaAppSecret(): string | null {

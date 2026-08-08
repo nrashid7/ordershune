@@ -88,47 +88,23 @@ export async function acceptInvite(token: string) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data: invite } = await supabase
-    .from("organization_invites")
-    .select("*")
-    .eq("token", token)
-    .eq("status", "pending")
-    .maybeSingle();
+  // SECURITY DEFINER RPC — invitee cannot reliably SELECT/UPDATE invites under RLS.
+  const { data, error } = await supabase.rpc("accept_team_invite", {
+    invite_token: token,
+  });
 
-  if (!invite) return { error: "Invite not found or expired" };
+  if (error) return { error: error.message };
 
-  if (new Date(invite.expires_at) < new Date()) {
-    return { error: "Invite has expired" };
+  const result = data as
+    | { success?: boolean; organizationId?: string; error?: string }
+    | null;
+
+  if (!result || result.error) {
+    return { error: result?.error ?? "Invite not found or expired" };
   }
-
-  if (user.email?.toLowerCase() !== invite.email.toLowerCase()) {
-    return { error: "This invite was sent to a different email address" };
-  }
-
-  const { error: memberError } = await supabase.from("organization_members").upsert(
-    {
-      organization_id: invite.organization_id,
-      user_id: user.id,
-      role: invite.role,
-      invited_email: invite.email,
-    },
-    { onConflict: "organization_id,user_id" }
-  );
-
-  if (memberError) return { error: memberError.message };
-
-  await supabase
-    .from("organization_invites")
-    .update({ status: "accepted" })
-    .eq("id", invite.id);
-
-  await supabase
-    .from("profiles")
-    .update({ organization_id: invite.organization_id })
-    .eq("id", user.id);
 
   revalidatePath("/settings/team");
-  return { success: true, organizationId: invite.organization_id };
+  return { success: true, organizationId: result.organizationId };
 }
 
 export async function revokeInvite(inviteId: string) {

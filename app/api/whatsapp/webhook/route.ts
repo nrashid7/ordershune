@@ -30,13 +30,22 @@ export async function POST(request: Request) {
     const rawBody = await request.text();
     const appSecret = getEnv().WHATSAPP_APP_SECRET;
 
-    if (isProduction() && !hasWhatsAppSignatureVerification()) {
-      logger.warn("WhatsApp webhook signature verification is disabled");
-    }
-
-    if (isProduction() && hasWhatsAppSignatureVerification()) {
+    if (isProduction()) {
+      if (!hasWhatsAppSignatureVerification() || !appSecret) {
+        logger.error("WhatsApp webhook rejected: WHATSAPP_APP_SECRET not configured");
+        return NextResponse.json(
+          { error: "Webhook signature verification is required in production" },
+          { status: 503 }
+        );
+      }
       const signature = request.headers.get("x-hub-signature-256");
-      if (!verifyWhatsAppSignature(rawBody, signature, appSecret!)) {
+      if (!verifyWhatsAppSignature(rawBody, signature, appSecret)) {
+        logger.warn("WhatsApp webhook rejected: invalid signature");
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      }
+    } else if (hasWhatsAppSignatureVerification() && appSecret) {
+      const signature = request.headers.get("x-hub-signature-256");
+      if (!verifyWhatsAppSignature(rawBody, signature, appSecret)) {
         logger.warn("WhatsApp webhook rejected: invalid signature");
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
