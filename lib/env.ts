@@ -9,6 +9,7 @@ const serverSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
   WHATSAPP_APP_SECRET: z.string().min(1).optional(),
+  META_APP_SECRET: z.string().min(1).optional(),
   OCR_PROVIDER: z.enum(["mock", "ocrspace", "google"]).default("mock"),
   PATHAO_USERNAME: z.string().min(1).optional(),
   PATHAO_PASSWORD: z.string().min(1).optional(),
@@ -23,8 +24,9 @@ const serverSchema = z.object({
   INSTAGRAM_VERIFY_TOKEN: z.string().min(1).optional(),
   INSTAGRAM_ACCESS_TOKEN: z.string().min(1).optional(),
   SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
   OCR_API_KEY: z.string().min(1).optional(),
-  SPEECH_PROVIDER: z.enum(["mock", "openai"]).default("mock"),
+  SPEECH_PROVIDER: z.enum(["mock", "openai", "google"]).default("mock"),
   SPEECH_API_KEY: z.string().min(1).optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });

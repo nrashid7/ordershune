@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteOrderButton } from "@/components/orders/delete-order-button";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,6 +26,7 @@ import type { OrderRecord } from "@/lib/types/order";
 export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     return orders.filter((order) => {
@@ -54,6 +56,42 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
     toast.success("CSV exported");
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((o) => o.id)));
+    }
+  };
+
+  const printSelected = () => {
+    if (selected.size === 0) {
+      toast.error("Select at least one order");
+      return;
+    }
+    window.open(`/orders/labels?ids=${Array.from(selected).join(",")}`, "_blank");
+  };
+
+  const exportManifest = () => {
+    if (selected.size === 0) {
+      toast.error("Select at least one order");
+      return;
+    }
+    window.open(
+      `/api/orders/manifest?courier=pathao&ids=${Array.from(selected).join(",")}`,
+      "_blank"
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -68,7 +106,17 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {selected.size > 0 ? (
+            <>
+              <Button variant="outline" onClick={printSelected}>
+                Print selected ({selected.size})
+              </Button>
+              <Button variant="outline" onClick={exportManifest}>
+                Export manifest
+              </Button>
+            </>
+          ) : null}
           <ImportOrdersDialog />
           <Button variant="outline" onClick={exportCsv}>
             Export CSV
@@ -102,6 +150,13 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered.length > 0 && selected.size === filtered.length}
+                    onCheckedChange={toggleAll}
+                    aria-label="Select all orders"
+                  />
+                </TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>COD</TableHead>
@@ -112,6 +167,13 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
             <TableBody>
               {filtered.map((order) => (
                 <TableRow key={order.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(order.id)}
+                      onCheckedChange={() => toggleSelect(order.id)}
+                      aria-label={`Select order ${order.id}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="font-medium">{order.customer_name ?? "—"}</div>
                     <div className="text-sm text-muted-foreground">

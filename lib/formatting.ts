@@ -4,6 +4,7 @@ import type {
   OrderStatus,
   Profile,
 } from "@/lib/types/order";
+import { ORDER_FIELD_LABELS } from "@/lib/types/order";
 
 type OrderLike = Partial<OrderRecord> | Partial<ExtractedOrder>;
 
@@ -67,6 +68,16 @@ ${order.payment_status === "cod" ? `COD Amount: ${amount} টাকা` : "Payme
 Delivery: ${order.customer_address ?? order.delivery_area ?? "আপনার দেওয়া ঠিকানা"}
 
 ধন্যবাদ! 🙏`;
+}
+
+export function formatMissingFieldsPrompt(missingFields: string[]): string {
+  if (missingFields.length === 0) {
+    return "Thank you! We have all the details we need.";
+  }
+
+  const labels = missingFields.map((field) => ORDER_FIELD_LABELS[field] ?? field);
+
+  return `Thanks! We still need:\n${labels.map((l) => `• ${l}`).join("\n")}\n\nPlease reply with the missing information.`;
 }
 
 export function formatWhatsAppOrderReply(order: OrderLike): string {

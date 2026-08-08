@@ -5,6 +5,7 @@ import {
   Banknote,
   Bell,
   LayoutDashboard,
+  MessageSquare,
   Package,
   Settings,
   Users,
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, match: "exact" },
   { href: "/orders", label: "Orders", icon: Package },
+  { href: "/inbox", label: "Inbox", icon: MessageSquare },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/cod", label: "COD", icon: Banknote },
   { href: "/notifications", label: "Alerts", icon: Bell },

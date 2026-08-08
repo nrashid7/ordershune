@@ -16,8 +16,9 @@ export default async function TeamPage() {
   const { data: invites } = org
     ? await supabase
         .from("organization_invites")
-        .select("email, role")
+        .select("id, email, role, token, status")
         .eq("organization_id", org.id)
+        .eq("status", "pending")
     : { data: [] };
 
   return (

@@ -35,8 +35,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: limit.error }, { status: 403 });
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
   const inserts = rows.map((row) => ({
     user_id: user.id,
+    organization_id: profile?.organization_id ?? null,
     customer_name: row.customer_name ?? null,
     customer_phone: row.customer_phone ?? null,
     customer_address: row.customer_address ?? null,

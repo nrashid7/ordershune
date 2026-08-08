@@ -9,5 +9,24 @@ export async function register() {
   const { validateEnv } = await import("./lib/env");
   validateEnv();
 
-  // Optional: npm install @sentry/nextjs and add Sentry.init in sentry.client.config.ts
+  if (process.env.SENTRY_DSN) {
+    const Sentry = await import("@sentry/nextjs");
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      tracesSampleRate: 0.1,
+    });
+  }
+}
+
+export async function onRequestError(
+  error: unknown,
+  request: { path: string; method: string },
+  context: { routerKind: string; routePath: string }
+) {
+  if (!process.env.SENTRY_DSN) return;
+
+  const Sentry = await import("@sentry/nextjs");
+  Sentry.captureException(error, {
+    extra: { request, context },
+  });
 }

@@ -56,6 +56,7 @@ export interface Database {
         {
           id: string;
           user_id: string;
+          organization_id: string | null;
           customer_id: string | null;
           customer_name: string | null;
           customer_phone: string | null;
@@ -86,6 +87,7 @@ export interface Database {
         {
           id?: string;
           user_id: string;
+          organization_id?: string | null;
           customer_id?: string | null;
           customer_name?: string | null;
           customer_phone?: string | null;
@@ -206,6 +208,10 @@ export interface Database {
           organization_id: string;
           email: string;
           role: string;
+          status: string;
+          token: string;
+          invited_by: string | null;
+          expires_at: string;
           created_at: string;
         },
         {
@@ -213,6 +219,10 @@ export interface Database {
           organization_id: string;
           email: string;
           role?: string;
+          status?: string;
+          token?: string;
+          invited_by?: string | null;
+          expires_at?: string;
           created_at?: string;
         }
       >;
@@ -246,6 +256,7 @@ export interface Database {
         {
           id: string;
           user_id: string;
+          organization_id: string | null;
           phone: string;
           name: string | null;
           address: string | null;
@@ -260,6 +271,7 @@ export interface Database {
         {
           id?: string;
           user_id: string;
+          organization_id?: string | null;
           phone: string;
           name?: string | null;
           address?: string | null;
@@ -331,6 +343,9 @@ export interface Database {
           access_token_encrypted: string | null;
           verify_token: string | null;
           is_active: boolean;
+          capture_comments: boolean;
+          auto_private_reply: boolean;
+          comment_reply_template: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -342,8 +357,71 @@ export interface Database {
           access_token_encrypted?: string | null;
           verify_token?: string | null;
           is_active?: boolean;
+          capture_comments?: boolean;
+          auto_private_reply?: boolean;
+          comment_reply_template?: string | null;
           created_at?: string;
           updated_at?: string;
+        }
+      >;
+      channel_conversations: TableDef<
+        {
+          id: string;
+          user_id: string;
+          channel: string;
+          page_id: string;
+          sender_id: string;
+          sender_name: string | null;
+          last_order_id: string | null;
+          last_message: string | null;
+          state: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          channel: string;
+          page_id: string;
+          sender_id: string;
+          sender_name?: string | null;
+          last_order_id?: string | null;
+          last_message?: string | null;
+          state?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      channel_messages: TableDef<
+        {
+          id: string;
+          user_id: string;
+          conversation_id: string | null;
+          channel: string;
+          direction: string;
+          sender_id: string | null;
+          message_text: string | null;
+          message_type: string;
+          comment_id: string | null;
+          post_id: string | null;
+          order_id: string | null;
+          raw_payload: Json | null;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          conversation_id?: string | null;
+          channel: string;
+          direction: string;
+          sender_id?: string | null;
+          message_text?: string | null;
+          message_type?: string;
+          comment_id?: string | null;
+          post_id?: string | null;
+          order_id?: string | null;
+          raw_payload?: Json | null;
+          created_at?: string;
         }
       >;
     };

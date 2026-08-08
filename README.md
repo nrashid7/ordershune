@@ -23,7 +23,7 @@ OrderShune is an AI WhatsApp-first courier assistant for Bangladeshi f-commerce 
 
 ```bash
 git clone <your-repo>
-cd bebsha
+cd ordershune
 npm install
 ```
 
@@ -44,6 +44,8 @@ Or run the SQL files manually in the Supabase SQL editor (in order):
 - `supabase/migrations/20260530100000_initial_schema.sql`
 - `supabase/migrations/20260530120000_launch_features.sql` — customers, subscriptions, COD, notifications, team orgs, channel integrations, encrypted courier credentials, `orders.customer_id`
 - `supabase/migrations/20260530100001_seed_demo.sql`
+- `supabase/migrations/20260808100000_channel_capture.sql` — channel conversations/messages, comment capture settings
+- `supabase/migrations/20260808110000_team_scoping.sql` — invite tokens, org-scoped orders/customers, auto-accept trigger
 
 ### 3. Environment variables
 
@@ -101,6 +103,29 @@ ngrok http 3000
 ```
 
 6. Register seller phone in onboarding — bot matches sellers by `profiles.phone`
+
+## Messenger & Instagram webhook setup
+
+1. In Meta Developer Console, add Messenger and/or Instagram products
+2. Set webhook URLs:
+   - Messenger: `https://<your-domain>/api/messenger/webhook`
+   - Instagram: `https://<your-domain>/api/instagram/webhook`
+3. Subscribe to: `messages`, `messaging_postbacks`, `feed` (Facebook comments), `comments` (Instagram)
+4. Configure per-tenant tokens in **Settings → Channels** (Page ID, verify token, access token)
+5. Set `META_APP_SECRET` (or `WHATSAPP_APP_SECRET`) for webhook signature verification in production
+6. Comment capture: enable in channel settings; public reply + private DM handoff is automatic
+
+## Team invites
+
+1. Create a team at **Settings → Team**
+2. Invite members by email — a shareable link is generated
+3. Invitee opens `/invite/<token>` and accepts, or auto-joins on signup with matching email
+
+## Shipping labels & manifests
+
+- Print A6 carrier labels from **Order detail → Print label** or bulk **Orders → Print selected**
+- Export carrier-shaped CSV manifests via **Orders → Export manifest** for portal upload
+- Supported layouts: Pathao, REDX, Steadfast, Delivery Tiger
 
 ## Mock mode
 
@@ -178,13 +203,15 @@ Monitor `GET /api/health` — returns `200` when Supabase is reachable.
 - [x] Connect real WhatsApp Business Cloud API sending (when credentials set)
 - [x] Connect real Pathao, REDX, Steadfast, Delivery Tiger APIs (when credentials set)
 - [x] Add billing/subscription (Stripe)
-- [ ] Add team accounts (org + invites UI; invite acceptance and shared orders not yet wired)
-- [ ] Add Messenger integration (inbound webhook + settings; outbound replies still use env token)
-- [ ] Add Instagram DM integration (inbound webhook + settings; outbound replies still use env token)
+- [x] Add team accounts (org + invites with shareable links and auto-accept on signup)
+- [x] Add Messenger integration (DM + comment capture, per-tenant tokens, media OCR/STT)
+- [x] Add Instagram DM integration (DM + comment capture, per-tenant tokens, media OCR/STT)
 - [x] Add customer database / repeat buyer profiles
 - [x] Add COD tracking and reconciliation
 - [x] Add delivery status notifications
 - [x] Add bulk order import (CSV)
+- [x] Add shipping label printing (A6 per-carrier templates)
+- [x] Add carrier manifest CSV export
 - [ ] Add courier charge comparison (UI + API; pricing still heuristic/mock for some couriers)
 - [x] Encrypt courier credentials at rest (set `CREDENTIALS_ENCRYPTION_KEY`)
 
@@ -192,6 +219,10 @@ Monitor `GET /api/health` — returns `200` when Supabase is reachable.
 
 | Route | Purpose |
 |-------|---------|
+| `/inbox` | Captured Messenger/Instagram conversations |
+| `/orders/[id]/label` | Print single shipping label |
+| `/orders/labels` | Bulk print labels |
+| `/invite/[token]` | Accept team invite |
 | `/customers` | Repeat buyer CRM |
 | `/cod` | COD reconciliation |
 | `/notifications` | Delivery & courier alerts |
@@ -202,6 +233,7 @@ Monitor `GET /api/health` — returns `200` when Supabase is reachable.
 | `/settings/courier/compare` | Rate comparison |
 | `/forgot-password` | Password reset |
 | `/pricing`, `/privacy`, `/terms` | Marketing & legal |
+| `GET /api/orders/manifest` | Carrier CSV manifest export |
 | `GET /api/cron/sync-courier-status` | Courier status sync (Bearer `CRON_SECRET`) |
 
 ## Scripts
@@ -211,6 +243,8 @@ npm run dev      # Start dev server
 npm run build    # Production build
 npm run start    # Start production server
 npm run lint     # ESLint
+npm run typecheck # TypeScript check
+npm test         # Vitest unit tests
 ```
 
 ## Architecture

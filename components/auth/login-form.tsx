@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function LoginForm() {
+export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     signIn,
     null
@@ -21,6 +21,7 @@ export function LoginForm() {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
+          {redirectTo ? <input type="hidden" name="redirect" value={redirectTo} /> : null}
           {state?.error ? (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {state.error}
