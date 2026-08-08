@@ -203,7 +203,17 @@ Do **not** set `ALLOW_MOCK_PROVIDERS=true` in real production.
 4. Deploy — Node 20+, build command: `npm run build`
 5. Point WhatsApp / Messenger / Instagram webhooks to your domain
 6. Activate channels in **Settings → Channels** (Page ID + token + Active)
-7. Confirm `GET /api/health` returns `healthy` with empty `productionGaps`
+7. Confirm readiness:
+
+```bash
+npm run check:launch
+# or
+curl -s https://ordershune.vercel.app/api/health
+```
+
+Expect `status: "healthy"` and empty `productionGaps`.
+
+8. Merge the release PR into `main` so production redeploys (preview is already green on CI)
 
 ### Health check
 

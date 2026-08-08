@@ -5,6 +5,7 @@ const KEYS = [
   "NODE_ENV",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_APP_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
   "CREDENTIALS_ENCRYPTION_KEY",
   "OPENAI_API_KEY",
@@ -52,7 +53,7 @@ describe("production env guards", () => {
     expect(allowMockProviders()).toBe(true);
   });
 
-  it("fails validateEnv in production when critical secrets are missing", () => {
+  it("does not crash boot when optional production secrets are missing", () => {
     setEnv("NODE_ENV", "production");
     setEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
     setEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon");
@@ -63,7 +64,15 @@ describe("production env guards", () => {
     setEnv("WHATSAPP_APP_SECRET", undefined);
     setEnv("ALLOW_MOCK_PROVIDERS", undefined);
 
-    expect(() => validateEnv()).toThrow(/Production environment incomplete/);
+    expect(() => validateEnv()).not.toThrow();
+  });
+
+  it("throws in production when public Supabase keys are missing", () => {
+    setEnv("NODE_ENV", "production");
+    setEnv("NEXT_PUBLIC_SUPABASE_URL", undefined);
+    setEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", undefined);
+
+    expect(() => validateEnv()).toThrow(/Missing required Supabase/);
   });
 
   it("passes validateEnv in production when required secrets are set", () => {
@@ -74,6 +83,7 @@ describe("production env guards", () => {
     setEnv("CREDENTIALS_ENCRYPTION_KEY", "a".repeat(64));
     setEnv("OPENAI_API_KEY", "sk-test");
     setEnv("META_APP_SECRET", "meta-secret");
+    setEnv("NEXT_PUBLIC_APP_URL", "https://ordershune.vercel.app");
 
     expect(() => validateEnv()).not.toThrow();
   });

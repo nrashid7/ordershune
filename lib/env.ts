@@ -69,6 +69,12 @@ export function allowMockProviders() {
   return process.env.ALLOW_MOCK_PROVIDERS === "true";
 }
 
+/**
+ * Boot-time env validation.
+ * Throws only for missing public Supabase keys (app cannot function).
+ * Other production gaps are logged — `/api/health` and runtime fail-closed
+ * guards enforce them without taking down marketing/auth pages.
+ */
 export function validateEnv() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     if (isProduction()) {
@@ -89,11 +95,11 @@ export function validateEnv() {
     if (!env.META_APP_SECRET && !env.WHATSAPP_APP_SECRET) {
       missing.push("META_APP_SECRET or WHATSAPP_APP_SECRET");
     }
-    // OCR/STT mock is blocked at call-time via allowMockProviders(); text-only
-    // launches can omit media providers until image/voice capture is enabled.
+    if (!process.env.NEXT_PUBLIC_APP_URL) missing.push("NEXT_PUBLIC_APP_URL");
     if (missing.length > 0) {
-      throw new Error(
-        `Production environment incomplete. Set:\n- ${missing.join("\n- ")}`
+      console.error(
+        `[ordershune] Production environment incomplete. Set:\n- ${missing.join("\n- ")}\n` +
+          "Webhooks, extraction, and secret storage remain fail-closed until configured. See GET /api/health."
       );
     }
   }
