@@ -8,13 +8,22 @@ export type ReadinessReport = {
   healthy: boolean;
 };
 
+/** Hard requirements for core app launch (auth, AI orders, dashboard). */
 const PRODUCTION_REQUIRED = [
   "supabase",
   "service_role",
   "encryption",
   "openai",
-  "meta_signature",
 ] as const;
+
+function metaChannelsConfigured(env: ReturnType<typeof getEnv>): boolean {
+  return Boolean(
+    env.WHATSAPP_ACCESS_TOKEN ||
+      env.WHATSAPP_PHONE_NUMBER_ID ||
+      env.MESSENGER_PAGE_ACCESS_TOKEN ||
+      env.INSTAGRAM_ACCESS_TOKEN
+  );
+}
 
 export async function checkSupabaseConnectivity(): Promise<CheckStatus> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -68,12 +77,15 @@ export async function getLaunchReadiness(): Promise<ReadinessReport> {
         ? "error"
         : "warn";
     checks.openai = env.OPENAI_API_KEY ? "ok" : isProduction() ? "error" : "warn";
-    checks.meta_signature =
-      env.META_APP_SECRET || env.WHATSAPP_APP_SECRET
-        ? "ok"
-        : isProduction()
-          ? "error"
-          : "warn";
+    // Meta app secret is required only when Meta/WhatsApp channel tokens are present.
+    // Webhooks still fail closed in production without a signature secret.
+    if (env.META_APP_SECRET || env.WHATSAPP_APP_SECRET) {
+      checks.meta_signature = "ok";
+    } else if (metaChannelsConfigured(env)) {
+      checks.meta_signature = isProduction() ? "error" : "warn";
+    } else {
+      checks.meta_signature = "warn";
+    }
     checks.ocr =
       env.OCR_PROVIDER === "mock"
         ? allowMockProviders()
@@ -118,9 +130,20 @@ export function listMissingProductionSecrets(): string[] {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
   if (!process.env.CREDENTIALS_ENCRYPTION_KEY) missing.push("CREDENTIALS_ENCRYPTION_KEY");
   if (!process.env.OPENAI_API_KEY) missing.push("OPENAI_API_KEY");
-  if (!process.env.META_APP_SECRET && !process.env.WHATSAPP_APP_SECRET) {
+  if (!process.env.NEXT_PUBLIC_APP_URL) missing.push("NEXT_PUBLIC_APP_URL");
+
+  const channelsConfigured = Boolean(
+    process.env.WHATSAPP_ACCESS_TOKEN ||
+      process.env.WHATSAPP_PHONE_NUMBER_ID ||
+      process.env.MESSENGER_PAGE_ACCESS_TOKEN ||
+      process.env.INSTAGRAM_ACCESS_TOKEN
+  );
+  if (
+    channelsConfigured &&
+    !process.env.META_APP_SECRET &&
+    !process.env.WHATSAPP_APP_SECRET
+  ) {
     missing.push("META_APP_SECRET or WHATSAPP_APP_SECRET");
   }
-  if (!process.env.NEXT_PUBLIC_APP_URL) missing.push("NEXT_PUBLIC_APP_URL");
   return missing;
 }

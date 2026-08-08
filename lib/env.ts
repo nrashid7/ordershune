@@ -92,14 +92,28 @@ export function validateEnv() {
     if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
     if (!env.CREDENTIALS_ENCRYPTION_KEY) missing.push("CREDENTIALS_ENCRYPTION_KEY");
     if (!env.OPENAI_API_KEY) missing.push("OPENAI_API_KEY");
-    if (!env.META_APP_SECRET && !env.WHATSAPP_APP_SECRET) {
+    if (!process.env.NEXT_PUBLIC_APP_URL) missing.push("NEXT_PUBLIC_APP_URL");
+    const channelsConfigured = Boolean(
+      env.WHATSAPP_ACCESS_TOKEN ||
+        env.WHATSAPP_PHONE_NUMBER_ID ||
+        env.MESSENGER_PAGE_ACCESS_TOKEN ||
+        env.INSTAGRAM_ACCESS_TOKEN
+    );
+    if (
+      channelsConfigured &&
+      !env.META_APP_SECRET &&
+      !env.WHATSAPP_APP_SECRET
+    ) {
       missing.push("META_APP_SECRET or WHATSAPP_APP_SECRET");
     }
-    if (!process.env.NEXT_PUBLIC_APP_URL) missing.push("NEXT_PUBLIC_APP_URL");
     if (missing.length > 0) {
       console.error(
         `[ordershune] Production environment incomplete. Set:\n- ${missing.join("\n- ")}\n` +
           "Webhooks, extraction, and secret storage remain fail-closed until configured. See GET /api/health."
+      );
+    } else if (!env.META_APP_SECRET && !env.WHATSAPP_APP_SECRET) {
+      console.warn(
+        "[ordershune] META_APP_SECRET / WHATSAPP_APP_SECRET unset — Meta/WhatsApp webhooks stay disabled (fail closed)."
       );
     }
   }

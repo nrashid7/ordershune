@@ -186,7 +186,7 @@ Apply all migrations including `20260808200000_production_hardening.sql`, then s
 | `SUPABASE_SERVICE_ROLE_KEY` | Webhooks, cron, admin lookups |
 | `CREDENTIALS_ENCRYPTION_KEY` | Encrypt channel/courier tokens (64-char hex recommended) |
 | `OPENAI_API_KEY` | Real order extraction (mock heuristics disabled in production) |
-| `META_APP_SECRET` or `WHATSAPP_APP_SECRET` | Webhooks return `503` without signature verification in production |
+| `META_APP_SECRET` or `WHATSAPP_APP_SECRET` | Required before enabling Meta/WhatsApp webhooks (fail closed without it) |
 | `NEXT_PUBLIC_APP_URL` | Invite links, webhook URLs in settings |
 | `OCR_PROVIDER` + `OCR_API_KEY` | Required before processing images (mock blocked in production) |
 | `SPEECH_PROVIDER` (+ key) | Required before processing voice notes |
