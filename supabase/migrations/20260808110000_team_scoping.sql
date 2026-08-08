@@ -1,7 +1,9 @@
 -- Team invite tokens and org-scoped orders/customers
 
+create extension if not exists pgcrypto with schema extensions;
+
 alter table public.organization_invites
-  add column if not exists token text unique default encode(gen_random_bytes(16), 'hex'),
+  add column if not exists token text unique default encode(extensions.gen_random_bytes(16), 'hex'),
   add column if not exists status text not null default 'pending'
     check (status in ('pending', 'accepted', 'revoked', 'expired')),
   add column if not exists invited_by uuid references auth.users (id) on delete set null,
