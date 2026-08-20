@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Download, FileSpreadsheet, Plus, Printer, Search } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteOrderButton } from "@/components/orders/delete-order-button";
+import { ImportOrdersDialog } from "@/components/orders/import-orders-dialog";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,9 +21,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImportOrdersDialog } from "@/components/orders/import-orders-dialog";
 import { CSV_HEADERS, orderToCsvRow } from "@/lib/formatting";
 import type { OrderRecord } from "@/lib/types/order";
+
+const statusFilters = [
+  ["all", "All"],
+  ["pending", "Pending"],
+  ["ready_for_courier", "Ready"],
+  ["missing_info", "Missing info"],
+  ["courier_booked", "Booked"],
+  ["completed", "Completed"],
+];
 
 export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
   const [query, setQuery] = useState("");
@@ -57,8 +67,8 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
   };
 
   const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
+    setSelected((previous) => {
+      const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -66,11 +76,8 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
   };
 
   const toggleAll = () => {
-    if (selected.size === filtered.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(filtered.map((o) => o.id)));
-    }
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map((order) => order.id)));
   };
 
   const printSelected = () => {
@@ -93,114 +100,160 @@ export function OrdersTableClient({ orders }: { orders: OrderRecord[] }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="max-w-md space-y-2">
-          <Label htmlFor="orders-search" className="sr-only">
-            Search orders
-          </Label>
-          <Input
-            id="orders-search"
-            placeholder="Search orders..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+    <div className="space-y-5">
+      <div className="rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-md">
+            <Label htmlFor="orders-search" className="sr-only">Search orders</Label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              id="orders-search"
+              className="h-11 pl-10"
+              placeholder="Search customer, phone, or product"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ImportOrdersDialog />
+            <Button variant="outline" onClick={exportCsv}>
+              <Download aria-hidden="true" />
+              Export CSV
+            </Button>
+            <Button asChild>
+              <Link href="/orders/new">
+                <Plus aria-hidden="true" />
+                Create order
+              </Link>
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {selected.size > 0 ? (
-            <>
-              <Button variant="outline" onClick={printSelected}>
-                Print selected ({selected.size})
-              </Button>
-              <Button variant="outline" onClick={exportManifest}>
-                Export manifest
-              </Button>
-            </>
-          ) : null}
-          <ImportOrdersDialog />
-          <Button variant="outline" onClick={exportCsv}>
-            Export CSV
-          </Button>
-          <Button asChild>
-            <Link href="/orders/new">Create order</Link>
-          </Button>
-        </div>
+
+        <Tabs value={status} onValueChange={setStatus} className="mt-4">
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-muted/70 p-1">
+            {statusFilters.map(([value, label]) => (
+              <TabsTrigger key={value} value={value} className="min-h-9 shrink-0 px-3">
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
-      <Tabs value={status} onValueChange={setStatus}>
-        <TabsList className="flex h-auto flex-wrap">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="ready_for_courier">Ready</TabsTrigger>
-          <TabsTrigger value="missing_info">Missing info</TabsTrigger>
-          <TabsTrigger value="courier_booked">Booked</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {selected.size > 0 ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-brand/20 bg-brand-muted p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-bold text-brand">{selected.size} orders selected</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={printSelected} className="bg-card">
+              <Printer aria-hidden="true" />
+              Print labels
+            </Button>
+            <Button variant="outline" onClick={exportManifest} className="bg-card">
+              <FileSpreadsheet aria-hidden="true" />
+              Export manifest
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {filtered.length === 0 ? (
         <EmptyState
           title="No matching orders"
-          description="Try another filter or create a new order."
+          description="Try another search or filter, or create a new order."
           actionHref="/orders/new"
           actionLabel="Create order"
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
+        <>
+          <div className="space-y-3 md:hidden">
+            {filtered.map((order) => (
+              <article key={order.id} className="rounded-2xl border bg-card p-4 shadow-sm">
+                <div className="flex items-start gap-3">
                   <Checkbox
-                    checked={filtered.length > 0 && selected.size === filtered.length}
-                    onCheckedChange={toggleAll}
-                    aria-label="Select all orders"
+                    checked={selected.has(order.id)}
+                    onCheckedChange={() => toggleSelect(order.id)}
+                    aria-label={`Select order ${order.id}`}
+                    className="mt-1"
                   />
-                </TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>COD</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(order.id)}
-                      onCheckedChange={() => toggleSelect(order.id)}
-                      aria-label={`Select order ${order.id}`}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{order.customer_name ?? "—"}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {order.customer_phone ?? "—"}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h2 className="font-semibold">{order.customer_name ?? "Unknown customer"}</h2>
+                        <p className="mt-0.5 text-sm text-muted-foreground">{order.customer_phone ?? "No phone"}</p>
+                      </div>
+                      <StatusBadge status={order.status} />
                     </div>
-                  </TableCell>
-                  <TableCell>{order.product_name ?? "—"}</TableCell>
-                  <TableCell>{order.cod_amount ?? "—"}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={order.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-muted/55 p-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Product</p>
+                        <p className="mt-1 font-medium">{order.product_name ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">COD</p>
+                        <p className="mt-1 font-semibold tabular-nums">৳{order.cod_amount ?? "—"}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-end gap-2">
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/orders/${order.id}`}>View</Link>
+                        <Link href={`/orders/${order.id}`}>View order</Link>
                       </Button>
-                      <DeleteOrderButton
-                        orderId={order.id}
-                        customerName={order.customer_name}
-                      />
+                      <DeleteOrderButton orderId={order.id} customerName={order.customer_name} />
                     </div>
-                  </TableCell>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="w-12 pl-5">
+                    <Checkbox
+                      checked={filtered.length > 0 && selected.size === filtered.length}
+                      onCheckedChange={toggleAll}
+                      aria-label="Select all orders"
+                    />
+                  </TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>COD</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="pr-5 text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((order) => (
+                  <TableRow key={order.id} className="h-18">
+                    <TableCell className="pl-5">
+                      <Checkbox
+                        checked={selected.has(order.id)}
+                        onCheckedChange={() => toggleSelect(order.id)}
+                        aria-label={`Select order ${order.id}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-semibold">{order.customer_name ?? "—"}</div>
+                      <div className="mt-0.5 text-sm text-muted-foreground">{order.customer_phone ?? "—"}</div>
+                    </TableCell>
+                    <TableCell>{order.product_name ?? "—"}</TableCell>
+                    <TableCell className="font-semibold tabular-nums">৳{order.cod_amount ?? "—"}</TableCell>
+                    <TableCell><StatusBadge status={order.status} /></TableCell>
+                    <TableCell className="pr-5 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/orders/${order.id}`}>View</Link>
+                        </Button>
+                        <DeleteOrderButton orderId={order.id} customerName={order.customer_name} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </div>
   );

@@ -7,10 +7,10 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-dvh bg-background">
       <SkipLink />
       <DashboardShell>
-        <main id="main-content" className="mx-auto max-w-6xl px-4 py-6 pb-24 md:pb-6">
+        <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:px-8 md:py-8 md:pb-8">
           {children}
         </main>
       </DashboardShell>

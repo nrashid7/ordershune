@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { signUp, type ActionState } from "@/lib/actions/orders";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -15,9 +15,10 @@ export function SignUpForm() {
   );
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md border-0 bg-transparent shadow-none sm:border sm:bg-card sm:shadow-[0_18px_55px_rgba(18,48,35,0.08)]">
       <CardHeader>
-        <CardTitle>Start free with OrderShune</CardTitle>
+        <CardTitle className="text-3xl font-bold tracking-[-0.035em]">Start selling smarter</CardTitle>
+        <CardDescription>Create your free account. No card required.</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
@@ -26,11 +27,11 @@ export function SignUpForm() {
               {state.error}
             </p>
           ) : null}
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" required autoComplete="email" />
           </div>
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
@@ -41,7 +42,7 @@ export function SignUpForm() {
               autoComplete="new-password"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" size="lg" className="w-full" disabled={pending}>
             {pending ? "Creating account..." : "Create account"}
           </Button>
         </form>
