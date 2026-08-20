@@ -10,14 +10,15 @@ export async function upsertCustomerFromOrder(
     customer_address?: string | null;
     delivery_area?: string | null;
     cod_amount?: number | null;
-  }
+  },
+  organizationId?: string | null
 ): Promise<string | null> {
   if (!order.customer_phone) return null;
 
   const phone = normalizePhone(order.customer_phone);
   const { data: existing } = await supabase
     .from("customers")
-    .select("id, order_count, total_cod")
+    .select("id, order_count, total_cod, organization_id")
     .eq("user_id", userId)
     .eq("phone", phone)
     .maybeSingle();
@@ -31,6 +32,7 @@ export async function upsertCustomerFromOrder(
         name: order.customer_name ?? undefined,
         address: order.customer_address ?? undefined,
         delivery_area: order.delivery_area ?? undefined,
+        organization_id: organizationId ?? existing.organization_id ?? undefined,
         order_count: (existing.order_count ?? 0) + 1,
         total_cod: Number(existing.total_cod ?? 0) + cod,
         last_order_at: new Date().toISOString(),
@@ -43,6 +45,7 @@ export async function upsertCustomerFromOrder(
     .from("customers")
     .insert({
       user_id: userId,
+      organization_id: organizationId ?? null,
       phone,
       name: order.customer_name,
       address: order.customer_address,

@@ -1,28 +1,79 @@
 import { NextResponse } from "next/server";
+import {
+  findIntegrationByVerifyToken,
+  getMetaAppSecret,
+} from "@/lib/channels/credentials";
 import { handleMessengerWebhook } from "@/lib/channels/messenger";
+import { getEnv, isProduction } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { verifyMetaSignature } from "@/lib/meta/signature";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
-  const verifyToken = process.env.MESSENGER_VERIFY_TOKEN;
+  const envToken = getEnv().MESSENGER_VERIFY_TOKEN;
 
-  if (mode === "subscribe" && verifyToken && token === verifyToken && challenge) {
+  const tenantMatch = token
+    ? await findIntegrationByVerifyToken("messenger", token)
+    : false;
+
+  if (
+    mode === "subscribe" &&
+    challenge &&
+    token &&
+    (token === envToken || tenantMatch)
+  ) {
     return new NextResponse(challenge, { status: 200 });
   }
+
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
 export async function POST(request: Request) {
-  const ip = getClientIp(request);
-  const limited = rateLimit(`messenger:${ip}`, 120, 60_000);
-  if (!limited.ok) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-  }
+  try {
+    const ip = getClientIp(request);
+    const limited = rateLimit(`messenger:${ip}`, 120, 60_000);
+    if (!limited.ok) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
 
-  const body = await request.json();
-  await handleMessengerWebhook(body);
-  return NextResponse.json({ success: true });
+    const rawBody = await request.text();
+    const appSecret = getMetaAppSecret();
+
+    if (isProduction()) {
+      if (!appSecret) {
+        logger.error("Messenger webhook rejected: META_APP_SECRET not configured");
+        return NextResponse.json(
+          { error: "Webhook signature verification is required in production" },
+          { status: 503 }
+        );
+      }
+      const signature = request.headers.get("x-hub-signature-256");
+      if (!verifyMetaSignature(rawBody, signature, appSecret)) {
+        logger.warn("Messenger webhook rejected: invalid signature");
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      }
+    } else if (appSecret) {
+      const signature = request.headers.get("x-hub-signature-256");
+      if (!verifyMetaSignature(rawBody, signature, appSecret)) {
+        logger.warn("Messenger webhook rejected: invalid signature");
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      }
+    }
+
+    const body = rawBody ? JSON.parse(rawBody) : {};
+    await handleMessengerWebhook(body);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logger.error("Messenger webhook processing failed", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return NextResponse.json(
+      { error: "Webhook processing failed" },
+      { status: 500 }
+    );
+  }
 }

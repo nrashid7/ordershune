@@ -28,19 +28,56 @@ async function transcribeWithOpenAI(
   return String(data.text ?? "").trim();
 }
 
+async function transcribeWithGoogle(buffer: Buffer, mimeType: string): Promise<string> {
+  const apiKey = process.env.SPEECH_API_KEY ?? process.env.OCR_API_KEY;
+  if (!apiKey) throw new Error("SPEECH_API_KEY not configured for Google STT");
+
+  const response = await fetch(
+    `https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        config: {
+          encoding: mimeType.includes("webm") ? "WEBM_OPUS" : "LINEAR16",
+          sampleRateHertz: 48000,
+          languageCode: "bn-BD",
+          alternativeLanguageCodes: ["en-US"],
+        },
+        audio: { content: buffer.toString("base64") },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Google Speech-to-Text failed");
+  }
+
+  const data = await response.json();
+  const transcript = data?.results?.[0]?.alternatives?.[0]?.transcript;
+  if (!transcript) throw new Error("Google STT returned no transcript");
+  return String(transcript).trim();
+}
+
 export async function transcribeAudio(
   buffer: Buffer,
   mimeType: string
 ): Promise<string> {
+  const { allowMockProviders } = await import("@/lib/env");
   const provider = process.env.SPEECH_PROVIDER ?? "mock";
 
   switch (provider) {
     case "openai":
       return transcribeWithOpenAI(buffer, mimeType);
     case "google":
-      throw new Error("Google Speech-to-Text not implemented yet");
+      return transcribeWithGoogle(buffer, mimeType);
     case "mock":
     default:
+      if (!allowMockProviders()) {
+        throw new Error(
+          "SPEECH_PROVIDER=mock is not allowed in production. Set SPEECH_PROVIDER to openai or google."
+        );
+      }
       return MOCK_TRANSCRIPT;
   }
 }

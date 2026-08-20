@@ -15,10 +15,15 @@ export default async function OrdersPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Orders</h1>
-        <p className="text-sm text-muted-foreground">অর্ডার তালিকা / Order list</p>
+        <p className="text-sm font-bold text-brand">Order workspace</p>
+        <h1 className="mt-1 font-heading text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+          Every order, one clear view.
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Search, review, print, and hand orders to courier.
+        </p>
       </div>
       <OrdersTableClient orders={(orders ?? []) as OrderRecord[]} />
     </div>

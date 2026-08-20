@@ -12,6 +12,17 @@ function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
 
   if (level === "error") {
     console.error(line);
+    if (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      void import("@sentry/nextjs")
+        .then((Sentry) => {
+          const err =
+            meta?.error instanceof Error
+              ? meta.error
+              : new Error(typeof meta?.error === "string" ? meta.error : message);
+          Sentry.captureException(err, { extra: meta });
+        })
+        .catch(() => undefined);
+    }
     return;
   }
 

@@ -30,21 +30,56 @@ async function extractWithOcrSpace(
   return String(text).trim();
 }
 
+async function extractWithGoogleVision(buffer: Buffer): Promise<string> {
+  const apiKey = process.env.OCR_API_KEY;
+  if (!apiKey) throw new Error("OCR_API_KEY not configured for Google Vision");
+
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: buffer.toString("base64") },
+            features: [{ type: "TEXT_DETECTION" }],
+            imageContext: { languageHints: ["bn", "en"] },
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Google Vision OCR failed");
+  }
+
+  const data = await response.json();
+  const text = data?.responses?.[0]?.fullTextAnnotation?.text;
+  if (!text) throw new Error("Google Vision returned no text");
+  return String(text).trim();
+}
+
 export async function extractTextFromImage(
   buffer: Buffer,
   mimeType: string
 ): Promise<string> {
+  const { allowMockProviders } = await import("@/lib/env");
   const provider = process.env.OCR_PROVIDER ?? "mock";
 
   switch (provider) {
     case "ocrspace":
       return extractWithOcrSpace(buffer, mimeType);
     case "google":
-      throw new Error("Google Vision OCR not implemented yet — use ocrspace");
-    case "tesseract":
-      throw new Error("Tesseract OCR not implemented yet — use ocrspace");
+      return extractWithGoogleVision(buffer);
     case "mock":
     default:
+      if (!allowMockProviders()) {
+        throw new Error(
+          "OCR_PROVIDER=mock is not allowed in production. Set OCR_PROVIDER to google or ocrspace."
+        );
+      }
       return MOCK_OCR_TEXT;
   }
 }

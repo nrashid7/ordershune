@@ -29,11 +29,16 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
   const supabase = await createClient();
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
+  const redirectTo = String(formData.get("redirect") ?? "");
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
 
-  redirect("/dashboard");
+  const safeRedirect =
+    redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+      ? redirectTo
+      : "/dashboard";
+  redirect(safeRedirect);
 }
 
 export async function signOut() {
@@ -105,6 +110,12 @@ export async function saveOrder(data: {
 
   if (!user) return { error: "Not authenticated" };
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
   if (!data.id) {
     const limit = await checkOrderLimit(supabase, user.id);
     if (!limit.ok) return { error: limit.error };
@@ -113,6 +124,7 @@ export async function saveOrder(data: {
   const payload: Database["public"]["Tables"]["orders"]["Insert"] = {
     ...data,
     user_id: user.id,
+    organization_id: profile?.organization_id ?? undefined,
     extracted_json: data.extracted_json != null ? toJson(data.extracted_json) : undefined,
   };
 
@@ -136,7 +148,12 @@ export async function saveOrder(data: {
 
   if (error) return { error: error.message };
 
-  const customerId = await upsertCustomerFromOrder(supabase, user.id, data);
+  const customerId = await upsertCustomerFromOrder(
+    supabase,
+    user.id,
+    data,
+    profile?.organization_id
+  );
   if (customerId) {
     await supabase.from("orders").update({ customer_id: customerId }).eq("id", order.id);
   }

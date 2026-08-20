@@ -12,6 +12,11 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error(error);
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      void import("@sentry/nextjs").then((Sentry) => {
+        Sentry.captureException(error);
+      });
+    }
   }, [error]);
 
   return (
@@ -21,6 +26,9 @@ export default function Error({
         We hit an unexpected error. Try again, or contact support if the problem
         persists.
       </p>
+      {error.digest ? (
+        <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>
+      ) : null}
       <Button onClick={reset}>Try again</Button>
     </div>
   );

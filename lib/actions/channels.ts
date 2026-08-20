@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { encryptSecret } from "@/lib/crypto";
+import { encryptSecret, hasEncryptionKey } from "@/lib/crypto";
+import { isProduction } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export async function saveChannelIntegration(formData: FormData) {
@@ -13,15 +14,45 @@ export async function saveChannelIntegration(formData: FormData) {
 
   const channel = String(formData.get("channel") ?? "");
   const token = String(formData.get("access_token") ?? "");
+  const pageId = String(formData.get("page_id") ?? "").trim();
+  const isActive = formData.get("is_active") === "on";
+
+  if (token && isProduction() && !hasEncryptionKey()) {
+    throw new Error(
+      "CREDENTIALS_ENCRYPTION_KEY must be set before saving channel tokens in production"
+    );
+  }
+
+  if (isActive && !pageId) {
+    throw new Error("Page / Account ID is required when a channel is active");
+  }
+
+  const { data: existing } = await supabase
+    .from("channel_integrations")
+    .select("access_token_encrypted")
+    .eq("user_id", user.id)
+    .eq("channel", channel)
+    .maybeSingle();
+
+  if (isActive && !token && !existing?.access_token_encrypted) {
+    throw new Error("Access token is required when activating a channel");
+  }
 
   const { error } = await supabase.from("channel_integrations").upsert(
     {
       user_id: user.id,
       channel,
-      page_id: String(formData.get("page_id") ?? "") || null,
-      access_token_encrypted: encryptSecret(token) ?? (token || null),
+      page_id: pageId || null,
+      access_token_encrypted: token
+        ? encryptSecret(token)
+        : existing?.access_token_encrypted ?? null,
       verify_token: String(formData.get("verify_token") ?? "") || null,
-      is_active: formData.get("is_active") === "on",
+      is_active: isActive,
+      capture_comments: formData.get("capture_comments") === "on",
+      auto_private_reply: formData.get("auto_private_reply") === "on",
+      comment_reply_template:
+        String(formData.get("comment_reply_template") ?? "") ||
+        "ইনবক্স করুন 📩 We have sent you a message.",
     },
     { onConflict: "user_id,channel" }
   );

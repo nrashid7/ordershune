@@ -1,19 +1,13 @@
-import { extractOrder } from "@/lib/ai/extract-order";
-import { upsertCustomerFromOrder } from "@/lib/customers";
 import {
-  deriveOrderStatus,
   formatWhatsAppOrderReply,
   normalizePhone,
 } from "@/lib/formatting";
-import { checkOrderLimit } from "@/lib/subscriptions";
 import { extractTextFromImage } from "@/lib/ocr";
 import { transcribeAudio } from "@/lib/speech";
-import type { InputType } from "@/lib/types/order";
-import { dbOrderToRecord } from "@/lib/types/order";
-import { toJson } from "@/lib/types/database";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { downloadWhatsAppMedia, sendWhatsAppMessage } from "./client";
 import { handleCommand } from "./commands";
+import { ingestMessage } from "@/lib/channels/pipeline";
 
 interface WhatsAppMessage {
   from: string;
@@ -72,79 +66,23 @@ async function findSellerUserId(phone: string) {
   return session?.user_id ?? null;
 }
 
-async function processOrderInput(
+async function saveWhatsAppSession(
   userId: string,
   phone: string,
-  inputType: InputType,
-  rawText: string
+  lastMessage: string,
+  orderId: string
 ) {
   const admin = createAdminClient();
-  const limit = await checkOrderLimit(admin, userId);
-  if (!limit.ok) {
-    throw new Error(limit.error ?? "Order limit reached");
-  }
-
-  const extracted = await extractOrder(rawText, inputType);
-  const status = deriveOrderStatus(extracted);
-
-  const { data: order, error } = await admin
-    .from("orders")
-    .insert({
-      user_id: userId,
-      customer_name: extracted.customer_name,
-      customer_phone: extracted.customer_phone,
-      customer_address: extracted.customer_address,
-      delivery_area: extracted.delivery_area,
-      product_name: extracted.product_name,
-      quantity: extracted.quantity,
-      variant: extracted.variant,
-      price: extracted.price,
-      cod_amount: extracted.cod_amount,
-      payment_status: extracted.payment_status,
-      delivery_note: extracted.delivery_note,
-      raw_input: rawText,
-      input_type: inputType,
-      extracted_json: toJson(extracted),
-      missing_fields: extracted.missing_fields,
-      confidence_score: extracted.confidence_score,
-      status,
-    })
-    .select("*")
-    .single();
-
-  if (error || !order) {
-    throw new Error(error?.message ?? "Failed to save draft order");
-  }
-
-  const customerId = await upsertCustomerFromOrder(admin, userId, extracted);
-  if (customerId) {
-    await admin.from("orders").update({ customer_id: customerId }).eq("id", order.id);
-  }
-
-  if (extracted.payment_status === "cod" || extracted.cod_amount) {
-    await admin.from("cod_entries").upsert(
-      {
-        user_id: userId,
-        order_id: order.id,
-        cod_amount: extracted.cod_amount ?? 0,
-        status: "pending",
-      },
-      { onConflict: "order_id" }
-    );
-  }
-
   await admin.from("whatsapp_sessions").upsert(
     {
       user_id: userId,
       whatsapp_phone: normalizePhone(phone),
-      last_message: rawText.slice(0, 500),
-      last_order_id: order.id,
+      last_message: lastMessage.slice(0, 500),
+      last_order_id: orderId,
       state: "draft",
     },
     { onConflict: "whatsapp_phone" }
   );
-
-  return dbOrderToRecord(order);
 }
 
 export async function handleWhatsAppWebhook(body: unknown) {
@@ -167,7 +105,11 @@ export async function handleWhatsAppWebhook(body: unknown) {
       const text = message.text.trim();
       const lower = text.toLowerCase();
 
-      if (["confirm", "1", "2", "3", "4", "format", "orders", "help", "cancel", "edit"].includes(lower)) {
+      if (
+        ["confirm", "1", "2", "3", "4", "format", "orders", "help", "cancel", "edit"].includes(
+          lower
+        )
+      ) {
         const { data: session } = await admin
           .from("whatsapp_sessions")
           .select("*")
@@ -230,7 +172,8 @@ export async function handleWhatsAppWebhook(body: unknown) {
         continue;
       }
 
-      const order = await processOrderInput(userId, message.from, "text", text);
+      const order = await ingestMessage(userId, "text", text);
+      await saveWhatsAppSession(userId, message.from, text, order.id);
       await sendWhatsAppMessage(message.from, formatWhatsAppOrderReply(order));
       continue;
     }
@@ -238,12 +181,8 @@ export async function handleWhatsAppWebhook(body: unknown) {
     if (message.type === "image" && message.mediaId) {
       const media = await downloadWhatsAppMedia(message.mediaId);
       const ocrText = await extractTextFromImage(media.buffer, media.mimeType);
-      const order = await processOrderInput(
-        userId,
-        message.from,
-        "image_ocr_text",
-        ocrText
-      );
+      const order = await ingestMessage(userId, "image_ocr_text", ocrText);
+      await saveWhatsAppSession(userId, message.from, ocrText, order.id);
       await sendWhatsAppMessage(message.from, formatWhatsAppOrderReply(order));
       continue;
     }
@@ -251,12 +190,8 @@ export async function handleWhatsAppWebhook(body: unknown) {
     if (message.type === "audio" && message.mediaId) {
       const media = await downloadWhatsAppMedia(message.mediaId);
       const transcript = await transcribeAudio(media.buffer, media.mimeType);
-      const order = await processOrderInput(
-        userId,
-        message.from,
-        "audio_transcript",
-        transcript
-      );
+      const order = await ingestMessage(userId, "audio_transcript", transcript);
+      await saveWhatsAppSession(userId, message.from, transcript, order.id);
       await sendWhatsAppMessage(message.from, formatWhatsAppOrderReply(order));
       continue;
     }

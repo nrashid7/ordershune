@@ -1,5 +1,11 @@
 type Entry = { count: number; resetAt: number };
 
+/**
+ * Best-effort in-process rate limiter.
+ * On multi-instance hosts (e.g. Vercel) this does not coordinate across
+ * instances — treat as a soft guard. Webhooks rely on signature verification
+ * as the primary abuse control.
+ */
 const store = new Map<string, Entry>();
 
 export function rateLimit(

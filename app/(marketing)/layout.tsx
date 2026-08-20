@@ -4,7 +4,7 @@ import { SkipLink } from "@/components/ui/skip-link";
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-muted to-background">
+    <div className="min-h-screen bg-background">
       <SkipLink />
       <SiteHeader />
       <main id="main-content">{children}</main>

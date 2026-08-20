@@ -39,9 +39,12 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/settings") ||
     pathname.startsWith("/customers") ||
     pathname.startsWith("/cod") ||
-    pathname.startsWith("/notifications");
+    pathname.startsWith("/notifications") ||
+    pathname.startsWith("/inbox");
 
-  if (!user && isProtectedRoute) {
+  const isInviteRoute = pathname.startsWith("/invite/");
+
+  if (!user && (isProtectedRoute || isInviteRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
@@ -76,7 +79,12 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  const protectedApiRoutes = ["/api/extract-order", "/api/media-process"];
+  const protectedApiRoutes = [
+    "/api/extract-order",
+    "/api/media-process",
+    "/api/orders/import",
+    "/api/orders/manifest",
+  ];
   if (!user && protectedApiRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

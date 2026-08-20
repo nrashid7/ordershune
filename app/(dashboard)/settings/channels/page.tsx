@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ChannelsPage() {
@@ -23,11 +24,13 @@ export default async function ChannelsPage() {
       id: "messenger",
       title: "Facebook Messenger",
       webhook: `${process.env.NEXT_PUBLIC_APP_URL}/api/messenger/webhook`,
+      subscriptions: "messages, messaging_postbacks, feed (comments)",
     },
     {
       id: "instagram",
       title: "Instagram DM",
       webhook: `${process.env.NEXT_PUBLIC_APP_URL}/api/instagram/webhook`,
+      subscriptions: "messages, comments",
     },
   ] as const;
 
@@ -36,16 +39,32 @@ export default async function ChannelsPage() {
       <div>
         <h1 className="text-2xl font-bold">Channel integrations</h1>
         <p className="text-sm text-muted-foreground">
-          Connect Messenger and Instagram to extract orders from DMs
+          Connect Messenger and Instagram to extract orders from DMs and comments
+        </p>
+        <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
+          To go live: set Page/Account ID, verify token, and access token, then enable
+          Active. Meta must also send webhooks to the URL below with{" "}
+          <code className="text-xs">META_APP_SECRET</code> configured on the server.
         </p>
       </div>
       {channels.map((ch) => {
         const integration = map.get(ch.id);
+        const incomplete =
+          Boolean(integration?.is_active) &&
+          (!integration?.page_id || !integration?.access_token_encrypted);
         return (
           <Card key={ch.id}>
             <CardHeader>
               <CardTitle>{ch.title}</CardTitle>
               <p className="text-xs text-muted-foreground break-all">Webhook: {ch.webhook}</p>
+              <p className="text-xs text-muted-foreground">
+                Subscribe to: {ch.subscriptions}
+              </p>
+              {incomplete ? (
+                <p className="text-sm text-destructive">
+                  Active but missing Page ID or access token — webhooks will be skipped.
+                </p>
+              ) : null}
             </CardHeader>
             <CardContent>
               <form action={saveChannelIntegration} className="grid gap-4 sm:grid-cols-2">
@@ -62,13 +81,40 @@ export default async function ChannelsPage() {
                   <Label>Access token</Label>
                   <Input name="access_token" type="password" placeholder="Leave blank to keep" />
                 </div>
+                <div className="sm:col-span-2">
+                  <Label>Public comment reply template</Label>
+                  <Textarea
+                    name="comment_reply_template"
+                    defaultValue={
+                      integration?.comment_reply_template ??
+                      "ইনবক্স করুন 📩 We have sent you a message."
+                    }
+                    rows={2}
+                  />
+                </div>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     name="is_active"
-                    defaultChecked={integration?.is_active}
+                    defaultChecked={integration?.is_active ?? false}
                   />
                   Active
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="capture_comments"
+                    defaultChecked={integration?.capture_comments ?? true}
+                  />
+                  Capture comments on posts
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="auto_private_reply"
+                    defaultChecked={integration?.auto_private_reply ?? true}
+                  />
+                  Auto private-reply to commenters
                 </label>
                 <Button type="submit">Save</Button>
               </form>

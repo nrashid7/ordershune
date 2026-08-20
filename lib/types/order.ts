@@ -37,6 +37,7 @@ export interface ExtractedOrder {
 export interface OrderRecord {
   id: string;
   user_id: string;
+  organization_id?: string | null;
   customer_id?: string | null;
   customer_name: string | null;
   customer_phone: string | null;

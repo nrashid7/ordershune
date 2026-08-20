@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { CopyButton } from "@/components/copy-button";
 import {
   extractedToFormValues,
   OrderCard,
   type OrderCardValues,
 } from "@/components/orders/order-card";
+import { PrintLabelButton } from "@/components/orders/print-label-button";
 import { OrderTimeline } from "@/components/orders/order-timeline";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { Button } from "@/components/ui/button";
@@ -121,6 +123,10 @@ export function OrderDetailClient({
           text={generateCustomerConfirmation(summaryOrder)}
           label="Copy Confirmation"
         />
+        <Button asChild variant="outline">
+          <Link href={`/orders/${order.id}/label`}>Print label</Link>
+        </Button>
+        <PrintLabelButton />
         {order.courier_tracking_id ? (
           <Button
             variant="outline"

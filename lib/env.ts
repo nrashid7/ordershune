@@ -9,6 +9,7 @@ const serverSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
   WHATSAPP_APP_SECRET: z.string().min(1).optional(),
+  META_APP_SECRET: z.string().min(1).optional(),
   OCR_PROVIDER: z.enum(["mock", "ocrspace", "google"]).default("mock"),
   PATHAO_USERNAME: z.string().min(1).optional(),
   PATHAO_PASSWORD: z.string().min(1).optional(),
@@ -23,9 +24,14 @@ const serverSchema = z.object({
   INSTAGRAM_VERIFY_TOKEN: z.string().min(1).optional(),
   INSTAGRAM_ACCESS_TOKEN: z.string().min(1).optional(),
   SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
   OCR_API_KEY: z.string().min(1).optional(),
-  SPEECH_PROVIDER: z.enum(["mock", "openai"]).default("mock"),
+  SPEECH_PROVIDER: z.enum(["mock", "openai", "google"]).default("mock"),
   SPEECH_API_KEY: z.string().min(1).optional(),
+  ALLOW_MOCK_PROVIDERS: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
@@ -48,9 +54,30 @@ export function getEnv(): ServerEnv {
   return cachedEnv;
 }
 
+/** Reset cached env (tests only). */
+export function resetEnvCache() {
+  cachedEnv = null;
+}
+
+export function isProduction() {
+  return process.env.NODE_ENV === "production";
+}
+
+/** Mock OCR/STT/AI/courier booking allowed only outside production (unless overridden). */
+export function allowMockProviders() {
+  if (!isProduction()) return true;
+  return process.env.ALLOW_MOCK_PROVIDERS === "true";
+}
+
+/**
+ * Boot-time env validation.
+ * Throws only for missing public Supabase keys (app cannot function).
+ * Other production gaps are logged — `/api/health` and runtime fail-closed
+ * guards enforce them without taking down marketing/auth pages.
+ */
 export function validateEnv() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    if (process.env.NODE_ENV === "production") {
+    if (isProduction()) {
       throw new Error(
         "Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
       );
@@ -58,11 +85,38 @@ export function validateEnv() {
     return;
   }
 
-  getEnv();
-}
+  const env = getEnv();
 
-export function isProduction() {
-  return process.env.NODE_ENV === "production";
+  if (isProduction()) {
+    const missing: string[] = [];
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+    if (!env.CREDENTIALS_ENCRYPTION_KEY) missing.push("CREDENTIALS_ENCRYPTION_KEY");
+    if (!env.OPENAI_API_KEY) missing.push("OPENAI_API_KEY");
+    if (!process.env.NEXT_PUBLIC_APP_URL) missing.push("NEXT_PUBLIC_APP_URL");
+    const channelsConfigured = Boolean(
+      env.WHATSAPP_ACCESS_TOKEN ||
+        env.WHATSAPP_PHONE_NUMBER_ID ||
+        env.MESSENGER_PAGE_ACCESS_TOKEN ||
+        env.INSTAGRAM_ACCESS_TOKEN
+    );
+    if (
+      channelsConfigured &&
+      !env.META_APP_SECRET &&
+      !env.WHATSAPP_APP_SECRET
+    ) {
+      missing.push("META_APP_SECRET or WHATSAPP_APP_SECRET");
+    }
+    if (missing.length > 0) {
+      console.error(
+        `[ordershune] Production environment incomplete. Set:\n- ${missing.join("\n- ")}\n` +
+          "Webhooks, extraction, and secret storage remain fail-closed until configured. See GET /api/health."
+      );
+    } else if (!env.META_APP_SECRET && !env.WHATSAPP_APP_SECRET) {
+      console.warn(
+        "[ordershune] META_APP_SECRET / WHATSAPP_APP_SECRET unset — Meta/WhatsApp webhooks stay disabled (fail closed)."
+      );
+    }
+  }
 }
 
 export function hasWhatsAppCredentials() {
@@ -76,4 +130,9 @@ export function hasWhatsAppCredentials() {
 
 export function hasWhatsAppSignatureVerification() {
   return Boolean(getEnv().WHATSAPP_APP_SECRET);
+}
+
+export function hasMetaSignatureVerification() {
+  const env = getEnv();
+  return Boolean(env.META_APP_SECRET || env.WHATSAPP_APP_SECRET);
 }

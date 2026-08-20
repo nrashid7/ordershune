@@ -23,7 +23,7 @@ OrderShune is an AI WhatsApp-first courier assistant for Bangladeshi f-commerce 
 
 ```bash
 git clone <your-repo>
-cd bebsha
+cd ordershune
 npm install
 ```
 
@@ -44,6 +44,9 @@ Or run the SQL files manually in the Supabase SQL editor (in order):
 - `supabase/migrations/20260530100000_initial_schema.sql`
 - `supabase/migrations/20260530120000_launch_features.sql` — customers, subscriptions, COD, notifications, team orgs, channel integrations, encrypted courier credentials, `orders.customer_id`
 - `supabase/migrations/20260530100001_seed_demo.sql`
+- `supabase/migrations/20260808100000_channel_capture.sql` — channel conversations/messages, comment capture settings
+- `supabase/migrations/20260808110000_team_scoping.sql` — invite tokens, org-scoped orders/customers, auto-accept trigger
+- `supabase/migrations/20260808200000_production_hardening.sql` — invite accept RPC, unique active page_id
 
 ### 3. Environment variables
 
@@ -102,19 +105,40 @@ ngrok http 3000
 
 6. Register seller phone in onboarding — bot matches sellers by `profiles.phone`
 
-## Mock mode
+## Messenger & Instagram webhook setup
 
-OrderShune works end-to-end without external credentials:
+1. In Meta Developer Console, add Messenger and/or Instagram products
+2. Set webhook URLs:
+   - Messenger: `https://<your-domain>/api/messenger/webhook`
+   - Instagram: `https://<your-domain>/api/instagram/webhook`
+3. Subscribe to: `messages`, `messaging_postbacks`, `feed` (Facebook comments), `comments` (Instagram)
+4. Configure per-tenant tokens in **Settings → Channels** (Page ID, verify token, access token)
+5. Set `META_APP_SECRET` (or `WHATSAPP_APP_SECRET`) for webhook signature verification in production
+6. Comment capture: enable in channel settings; public reply + private DM handoff is automatic
 
-| Integration | Mock behavior |
-|-------------|---------------|
-| OpenAI | Regex/heuristic extraction |
-| OCR | Returns sample Banglish order text |
-| Speech | Returns sample Bangla transcript |
-| WhatsApp send | Logs reply to server console |
-| Courier APIs | Returns mock tracking IDs via adapters |
+## Team invites
 
-Set providers explicitly in `.env.local`:
+1. Create a team at **Settings → Team**
+2. Invite members by email — a shareable link is generated
+3. Invitee opens `/invite/<token>` and accepts, or auto-joins on signup with matching email
+
+## Shipping labels & manifests
+
+- Print A6 carrier labels from **Order detail → Print label** or bulk **Orders → Print selected**
+- Export carrier-shaped CSV manifests via **Orders → Export manifest** for portal upload
+- Supported layouts: Pathao, REDX, Steadfast, Delivery Tiger
+
+## Mock mode (local / staging only)
+
+Local development works without external credentials. **Production refuses mock providers** unless `ALLOW_MOCK_PROVIDERS=true` (staging escape hatch only).
+
+| Integration | Dev mock behavior | Production |
+|-------------|-------------------|------------|
+| OpenAI | Regex/heuristic extraction | Requires `OPENAI_API_KEY` |
+| OCR | Sample Banglish order text | Requires `OCR_PROVIDER=google\|ocrspace` |
+| Speech | Sample Bangla transcript | Requires `SPEECH_PROVIDER=openai\|google` |
+| WhatsApp send | Logs reply to server console | Needs Cloud API tokens |
+| Courier booking | Mock tracking IDs | Fails without courier API keys (use labels/manifests) |
 
 ```env
 OCR_PROVIDER=mock
@@ -152,39 +176,76 @@ Sample orders include text, screenshot OCR, voice transcript, missing info, and 
 
 ## Production deployment
 
+### Launch checklist (required before go-live)
+
+Apply all migrations including `20260808200000_production_hardening.sql`, then set these on Vercel/production:
+
+| Variable | Why |
+|----------|-----|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Auth + dashboard |
+| `SUPABASE_SERVICE_ROLE_KEY` | Webhooks, cron, admin lookups |
+| `CREDENTIALS_ENCRYPTION_KEY` | Encrypt channel/courier tokens (64-char hex recommended) |
+| `OPENAI_API_KEY` | Real order extraction (mock heuristics disabled in production) |
+| `META_APP_SECRET` or `WHATSAPP_APP_SECRET` | Required before enabling Meta/WhatsApp webhooks (fail closed without it) |
+| `NEXT_PUBLIC_APP_URL` | Invite links, webhook URLs in settings |
+| `OCR_PROVIDER` + `OCR_API_KEY` | Required before processing images (mock blocked in production) |
+| `SPEECH_PROVIDER` (+ key) | Required before processing voice notes |
+
+Optional but recommended: `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, Stripe keys, `CRON_SECRET`.
+
+Do **not** set `ALLOW_MOCK_PROVIDERS=true` in real production.
+
 ### Vercel (recommended)
 
 1. Push the repo to GitHub and import in [Vercel](https://vercel.com)
-2. Set environment variables from `.env.example` in the Vercel project settings
+2. Set environment variables from `.env.example` / the checklist above
 3. Set `NEXT_PUBLIC_APP_URL` to your production domain
-4. Deploy — build command: `npm run build`, output: Next.js default
-5. Point your WhatsApp webhook to `https://<your-domain>/api/whatsapp/webhook`
-6. Set `WHATSAPP_APP_SECRET` for webhook signature verification in production
+4. Deploy — Node 20+, build command: `npm run build`
+5. Point WhatsApp / Messenger / Instagram webhooks to your domain
+6. Activate channels in **Settings → Channels** (Page ID + token + Active)
+7. Confirm readiness:
+
+```bash
+npm run check:launch
+# or
+curl -s https://ordershune.vercel.app/api/health
+```
+
+Expect `status: "healthy"` and empty `productionGaps`.
+
+8. Merge the release PR into `main` so production redeploys (preview is already green on CI)
 
 ### Health check
 
-Monitor `GET /api/health` — returns `200` when Supabase is reachable.
+`GET /api/health` reports app, Supabase, service role, encryption, OpenAI, Meta signature, OCR, and speech readiness. Production returns `503` when required secrets are missing.
 
 ### Security checklist
 
 - Supabase RLS enabled on all tables (see migrations)
-- API routes require authentication via proxy session checks
-- WhatsApp webhook verifies `X-Hub-Signature-256` when `WHATSAPP_APP_SECRET` is set
+- Team invites accepted via `accept_team_invite` SECURITY DEFINER RPC
+- Authenticated API routes: extract-order, media-process, orders/import, orders/manifest
+- CSV import capped at 1 MB / 500 rows
+- Meta/WhatsApp webhooks **fail closed** in production without app secret; invalid signatures → `401`
+- Channel/courier secrets refuse plaintext storage when encryption key is missing in production
+- Mock OCR/STT/AI extraction and mock courier booking disabled in production
 - Security headers configured in `next.config.ts`
 - File uploads limited to 10 MB with MIME type validation
+- In-process rate limits are best-effort on multi-instance hosts; signatures are the primary webhook control
 
 ## Production roadmap
 
 - [x] Connect real WhatsApp Business Cloud API sending (when credentials set)
 - [x] Connect real Pathao, REDX, Steadfast, Delivery Tiger APIs (when credentials set)
 - [x] Add billing/subscription (Stripe)
-- [ ] Add team accounts (org + invites UI; invite acceptance and shared orders not yet wired)
-- [ ] Add Messenger integration (inbound webhook + settings; outbound replies still use env token)
-- [ ] Add Instagram DM integration (inbound webhook + settings; outbound replies still use env token)
+- [x] Add team accounts (org + invites with shareable links and auto-accept on signup)
+- [x] Add Messenger integration (DM + comment capture, per-tenant tokens, media OCR/STT)
+- [x] Add Instagram DM integration (DM + comment capture, per-tenant tokens, media OCR/STT)
 - [x] Add customer database / repeat buyer profiles
 - [x] Add COD tracking and reconciliation
 - [x] Add delivery status notifications
 - [x] Add bulk order import (CSV)
+- [x] Add shipping label printing (A6 per-carrier templates)
+- [x] Add carrier manifest CSV export
 - [ ] Add courier charge comparison (UI + API; pricing still heuristic/mock for some couriers)
 - [x] Encrypt courier credentials at rest (set `CREDENTIALS_ENCRYPTION_KEY`)
 
@@ -192,6 +253,10 @@ Monitor `GET /api/health` — returns `200` when Supabase is reachable.
 
 | Route | Purpose |
 |-------|---------|
+| `/inbox` | Captured Messenger/Instagram conversations |
+| `/orders/[id]/label` | Print single shipping label |
+| `/orders/labels` | Bulk print labels |
+| `/invite/[token]` | Accept team invite |
 | `/customers` | Repeat buyer CRM |
 | `/cod` | COD reconciliation |
 | `/notifications` | Delivery & courier alerts |
@@ -202,6 +267,7 @@ Monitor `GET /api/health` — returns `200` when Supabase is reachable.
 | `/settings/courier/compare` | Rate comparison |
 | `/forgot-password` | Password reset |
 | `/pricing`, `/privacy`, `/terms` | Marketing & legal |
+| `GET /api/orders/manifest` | Carrier CSV manifest export |
 | `GET /api/cron/sync-courier-status` | Courier status sync (Bearer `CRON_SECRET`) |
 
 ## Scripts
@@ -211,6 +277,8 @@ npm run dev      # Start dev server
 npm run build    # Production build
 npm run start    # Start production server
 npm run lint     # ESLint
+npm run typecheck # TypeScript check
+npm test         # Vitest unit tests
 ```
 
 ## Architecture

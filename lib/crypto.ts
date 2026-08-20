@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { isProduction } from "@/lib/env";
 
 const ALGO = "aes-256-gcm";
 const IV_LEN = 12;
@@ -15,7 +16,14 @@ function getKey(): Buffer | null {
 export function encryptSecret(plaintext: string | null | undefined): string | null {
   if (!plaintext) return null;
   const key = getKey();
-  if (!key) return plaintext;
+  if (!key) {
+    if (isProduction()) {
+      throw new Error(
+        "CREDENTIALS_ENCRYPTION_KEY is required in production to store secrets"
+      );
+    }
+    return plaintext;
+  }
 
   const iv = randomBytes(IV_LEN);
   const cipher = createCipheriv(ALGO, key, iv);
